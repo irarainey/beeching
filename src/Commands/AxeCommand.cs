@@ -1,6 +1,6 @@
+using Beeching.Commands.Interfaces;
 using Spectre.Console;
 using Spectre.Console.Cli;
-using System;
 using System.Diagnostics;
 using System.Text.Json;
 
@@ -17,9 +17,9 @@ namespace Beeching.Commands
 
         public override ValidationResult Validate(CommandContext context, AxeSettings settings)
         {
-            if (string.IsNullOrEmpty(settings.Name))
+            if (string.IsNullOrEmpty(settings.Id))
             {
-                return ValidationResult.Error("Name must be specified.");
+                return ValidationResult.Error("An Id must be specified.");
             }
 
             return ValidationResult.Success();
@@ -32,37 +32,43 @@ namespace Beeching.Commands
                 AnsiConsole.WriteLine($"Version: {typeof(AxeCommand).Assembly.GetName().Version}");
             }
 
-            // Get the subscription ID from the settings
             var subscriptionId = settings.Subscription;
 
             if (subscriptionId == Guid.Empty)
             {
-                // Get the subscription ID from the Azure CLI
                 try
                 {
                     if (settings.Debug)
                     {
-                        AnsiConsole.WriteLine("No subscription ID specified. Trying to retrieve the default subscription ID from Azure CLI.");
+                        AnsiConsole.WriteLine(
+                            "No subscription ID specified. Trying to retrieve the default subscription ID from Azure CLI."
+                        );
                     }
 
                     subscriptionId = Guid.Parse(GetDefaultAzureSubscriptionId());
 
                     if (settings.Debug)
                     {
-                        AnsiConsole.WriteLine($"Default subscription ID retrieved from az cli: {subscriptionId}");
+                        AnsiConsole.WriteLine(
+                            $"Default subscription ID retrieved from az cli: {subscriptionId}"
+                        );
                     }
 
                     settings.Subscription = subscriptionId;
                 }
                 catch (Exception e)
                 {
-                    AnsiConsole.WriteException(new ArgumentException(
-                        "Missing subscription ID. Please specify a subscription ID or login to Azure CLI.", e));
+                    AnsiConsole.WriteException(
+                        new ArgumentException(
+                            "Missing subscription ID. Please specify a subscription ID or login to Azure CLI.",
+                            e
+                        )
+                    );
                     return -1;
                 }
             }
 
-            await _azureAxe.AxeResourceGroup(settings.Debug, subscriptionId, settings.Name);
+            await _azureAxe.AxeResource(settings);
 
             return 0;
         }
@@ -83,13 +89,10 @@ namespace Beeching.Commands
                 }
             };
 
-            // Start the process
             process.Start();
 
-            // Read the output of the process
             string azOutput = process.StandardOutput.ReadToEnd();
 
-            // Wait for the process to finish
             process.WaitForExit();
 
             int exitCode = process.ExitCode;
@@ -124,7 +127,8 @@ namespace Beeching.Commands
             {
                 StartInfo = new ProcessStartInfo
                 {
-                    FileName = Environment.OSVersion.Platform == PlatformID.Win32NT ? "where" : "which",
+                    FileName =
+                        Environment.OSVersion.Platform == PlatformID.Win32NT ? "where" : "which",
                     Arguments = "az",
                     RedirectStandardOutput = true,
                     UseShellExecute = false,
@@ -142,7 +146,13 @@ namespace Beeching.Commands
 
             process.Close();
 
-            return azExecutable + (Environment.OSVersion.Platform == PlatformID.Win32NT && azExecutable.EndsWith(".cmd") == false ? ".cmd" : "");
+            return azExecutable
+                + (
+                    Environment.OSVersion.Platform == PlatformID.Win32NT
+                    && azExecutable.EndsWith(".cmd") == false
+                        ? ".cmd"
+                        : ""
+                );
         }
     }
 }

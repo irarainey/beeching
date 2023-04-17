@@ -1,15 +1,21 @@
 ﻿using Beeching.Commands;
+using Beeching.Commands.Interfaces;
 using Beeching.Infrastructure;
 using Microsoft.Extensions.DependencyInjection;
 using Spectre.Console.Cli;
 
 var registrations = new ServiceCollection();
 
-registrations.AddHttpClient("AzApi", client =>
-{
-    client.BaseAddress = new Uri("https://management.azure.com/");
-    client.DefaultRequestHeaders.Add("Accept", "application/json");
-}).AddPolicyHandler(AzureAxe.GetRetryAfterPolicy());
+registrations
+    .AddHttpClient(
+        "AzApi",
+        client =>
+        {
+            client.BaseAddress = new Uri("https://management.azure.com/");
+            client.DefaultRequestHeaders.Add("Accept", "application/json");
+        }
+    )
+    .AddPolicyHandler(AzureAxe.GetRetryAfterPolicy());
 
 registrations.AddTransient<IAzureAxe, AzureAxe>();
 
@@ -25,7 +31,6 @@ app.Configure(config =>
 #if DEBUG
     config.PropagateExceptions();
 #endif
-
 });
 
 return await app.RunAsync(args);

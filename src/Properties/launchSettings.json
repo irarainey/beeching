@@ -1,0 +1,8 @@
+{
+  "profiles": {
+    "beeching": {
+      "commandName": "Project",
+      "commandLineArgs": "-i /subscriptions/58e07d12-679d-4bb4-88fc-23b4eae75b08/resourcegroups/junk/providers/Microsoft.Storage/storageAccounts/irasample001 -d"
+    }
+  }
+}
