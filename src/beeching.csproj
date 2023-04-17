@@ -1,0 +1,53 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <RootNamespace>Beeching</RootNamespace>
+    <TargetFrameworks>net7.0;net6.0</TargetFrameworks>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+  </PropertyGroup>
+
+  <PropertyGroup>
+    <PackAsTool>true</PackAsTool>
+    <ToolCommandName>beeching</ToolCommandName>
+    <Title>Beeching</Title>
+    <PublishRepositoryUrl>true</PublishRepositoryUrl>
+    <PackageId>beeching</PackageId>
+    <PackageOutputPath>./nupkg</PackageOutputPath>
+    <Version>0.1.0</Version>
+    <Authors>Ira Rainey</Authors>
+    <Description>Command line tool to delete Azure resources</Description>
+    <PackageLicenseExpression>MIT</PackageLicenseExpression>
+    <PackageProjectUrl>https://github.com/irarainey/beeching/</PackageProjectUrl>
+    <RepositoryUrl>https://github.com/irarainey/beeching/</RepositoryUrl>
+    <RepositoryType>git</RepositoryType>
+    <PackageTags>azure;cli</PackageTags>
+    <GeneratePackageOnBuild>True</GeneratePackageOnBuild>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Compile Remove="nupkg\**" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <EmbeddedResource Remove="nupkg\**" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Remove="nupkg\**" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Azure.Identity" Version="1.8.2" />
+    <PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="7.0.0" />
+    <PackageReference Include="Microsoft.Extensions.Http.Polly" Version="7.0.5" />
+    <PackageReference Include="Polly" Version="7.2.3" />
+    <PackageReference Include="Polly.Extensions.Http" Version="3.0.0" />
+    <PackageReference Include="Spectre.Console" Version="0.46.0" />
+    <PackageReference Include="Spectre.Console.Cli" Version="0.46.0" />
+    <PackageReference Include="Spectre.Console.Extensions.Progress" Version="1.0.0" />
+    <PackageReference Include="Spectre.Console.Json" Version="0.46.0" />
+  </ItemGroup>
+
+</Project>
