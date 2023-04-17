@@ -68,7 +68,7 @@ namespace Beeching.Commands
                 }
             }
 
-            await _azureAxe.AxeResource(settings);
+            await _azureAxe.AxeResources(settings);
 
             return 0;
         }
@@ -109,8 +109,8 @@ namespace Beeching.Commands
                 JsonElement root = jsonDocument.RootElement;
                 if (root.TryGetProperty("id", out JsonElement idElement))
                 {
-                    string subscriptionId = idElement.GetString();
-                    return subscriptionId;
+                    string? subscriptionId = idElement.GetString();
+                    return subscriptionId != null ? subscriptionId : "";
                 }
                 else
                 {

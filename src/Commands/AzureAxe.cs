@@ -11,36 +11,44 @@ namespace Beeching.Commands
     {
         private readonly HttpClient _client;
 
-        private bool _tokenRetrieved;
-
         public AzureAxe(IHttpClientFactory httpClientFactory)
         {
             _client = httpClientFactory.CreateClient("AzApi");
         }
 
-        public static IAsyncPolicy<HttpResponseMessage> GetRetryAfterPolicy()
+        public async Task<HttpResponseMessage> AxeResources(AxeSettings settings)
         {
-            return Policy
-                .HandleResult<HttpResponseMessage>(
-                    msg => msg.Headers.TryGetValues("RetryAfter", out var _)
-                )
-                .WaitAndRetryAsync(
-                    retryCount: 3,
-                    sleepDurationProvider: (_, response, _) =>
-                        response.Result.Headers.TryGetValues("RetryAfter", out var seconds)
-                            ? TimeSpan.FromSeconds(int.Parse(seconds.First()))
-                            : TimeSpan.FromSeconds(5),
-                    onRetryAsync: (msg, time, retries, context) => Task.CompletedTask
-                );
-        }
+            await GetAccessToken(settings.Debug);
 
-        private async Task RetrieveToken(bool includeDebugOutput)
-        {
-            if (_tokenRetrieved)
+            // Query the settings to determine how to find what to axe
+
+            // Get ids of all items to axe
+
+            // Iterate over ids and axe them
+
+            string resourceId = settings.Id;
+
+            var uri = new Uri($"{resourceId}?api-version=2021-04-01", UriKind.Relative);
+
+            var response = await _client.DeleteAsync(uri);
+
+            if (settings.Debug)
             {
-                return;
+                AnsiConsole.WriteLine($"Response status code is {response.StatusCode}");
+                if (!response.IsSuccessStatusCode)
+                {
+                    AnsiConsole.WriteLine(
+                        $"Response content: {await response.Content.ReadAsStringAsync()}"
+                    );
+                }
             }
 
+            response.EnsureSuccessStatusCode();
+            return response;
+        }
+
+        private async Task GetAccessToken(bool includeDebugOutput)
+        {
             var tokenCredential = new ChainedTokenCredential(
                 new AzureCliCredential(),
                 new DefaultAzureCredential()
@@ -66,40 +74,22 @@ namespace Beeching.Commands
                 "Bearer",
                 token.Token
             );
-
-            _tokenRetrieved = true;
         }
 
-        private async Task<HttpResponseMessage> ExecuteCallToAzureApi(AxeSettings settings, Uri uri)
+        public static IAsyncPolicy<HttpResponseMessage> GetRetryAfterPolicy()
         {
-            await RetrieveToken(settings.Debug);
-
-            var response = await _client.DeleteAsync(uri);
-
-            if (settings.Debug)
-            {
-                AnsiConsole.WriteLine($"Response status code is {response.StatusCode}");
-                if (!response.IsSuccessStatusCode)
-                {
-                    AnsiConsole.WriteLine(
-                        $"Response content: {await response.Content.ReadAsStringAsync()}"
-                    );
-                }
-            }
-
-            response.EnsureSuccessStatusCode();
-            return response;
-        }
-
-        public async Task<HttpResponseMessage> AxeResource(AxeSettings settings)
-        {
-            string resourceId = settings.Id;
-
-            var uri = new Uri($"{resourceId}?api-version=2021-04-01", UriKind.Relative);
-
-            var response = await ExecuteCallToAzureApi(settings, uri);
-
-            return response;
+            return Policy
+                .HandleResult<HttpResponseMessage>(
+                    msg => msg.Headers.TryGetValues("RetryAfter", out var _)
+                )
+                .WaitAndRetryAsync(
+                    retryCount: 3,
+                    sleepDurationProvider: (_, response, _) =>
+                        response.Result.Headers.TryGetValues("RetryAfter", out var seconds)
+                            ? TimeSpan.FromSeconds(int.Parse(seconds.First()))
+                            : TimeSpan.FromSeconds(5),
+                    onRetryAsync: (msg, time, retries, context) => Task.CompletedTask
+                );
         }
     }
 }

@@ -2,6 +2,6 @@ namespace Beeching.Commands.Interfaces
 {
     public interface IAzureAxe
     {
-        Task<HttpResponseMessage> AxeResource(AxeSettings settings);
+        Task<HttpResponseMessage> AxeResources(AxeSettings settings);
     }
 }
