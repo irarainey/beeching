@@ -17,10 +17,15 @@ namespace Beeching.Commands
 
         public override ValidationResult Validate(CommandContext context, AxeSettings settings)
         {
-            if (string.IsNullOrEmpty(settings.Id))
+            // Check that we have been given some way to identify the resources to axe
+            if (string.IsNullOrEmpty(settings.Id) && string.IsNullOrEmpty(settings.Name) && string.IsNullOrEmpty(settings.Tag))
             {
-                return ValidationResult.Error("An Id must be specified.");
+                return ValidationResult.Error("An Id, Name, or Tag must be specified for resources to be axed.");
             }
+
+            // Check that only one of Id, Name, or Tag has been specified
+
+            // Check that valid values have been specified for the Id, Name, or Tag parameters
 
             return ValidationResult.Success();
         }
@@ -68,9 +73,9 @@ namespace Beeching.Commands
                 }
             }
 
-            await _azureAxe.AxeResources(settings);
+            bool status = await _azureAxe.AxeResources(settings);
 
-            return 0;
+            return status ? 0 : -1;
         }
 
         private static string GetDefaultAzureSubscriptionId()

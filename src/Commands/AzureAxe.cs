@@ -1,6 +1,8 @@
 using Azure.Core;
 using Azure.Identity;
 using Beeching.Commands.Interfaces;
+using Beeching.Models;
+using Newtonsoft.Json;
 using Polly;
 using Spectre.Console;
 using System.Net.Http.Headers;
@@ -16,35 +18,101 @@ namespace Beeching.Commands
             _client = httpClientFactory.CreateClient("AzApi");
         }
 
-        public async Task<HttpResponseMessage> AxeResources(AxeSettings settings)
+        public async Task<bool> AxeResources(AxeSettings settings)
         {
+            // Get the access token and add it to the request header for the http client
             await GetAccessToken(settings.Debug);
 
-            // Query the settings to determine how to find what to axe
+            // Get the list of resources to axe based on the name filter
+            Resources? axeResources = await GetAxeResourceList(settings);
 
-            // Get ids of all items to axe
-
-            // Iterate over ids and axe them
-
-            string resourceId = settings.Id;
-
-            var uri = new Uri($"{resourceId}?api-version=2021-04-01", UriKind.Relative);
-
-            var response = await _client.DeleteAsync(uri);
-
-            if (settings.Debug)
+            // If there are no resources to axe then drop out
+            if (axeResources == null || axeResources.Value.Count == 0)
             {
-                AnsiConsole.WriteLine($"Response status code is {response.StatusCode}");
-                if (!response.IsSuccessStatusCode)
-                {
-                    AnsiConsole.WriteLine(
-                        $"Response content: {await response.Content.ReadAsStringAsync()}"
-                    );
-                }
+                AnsiConsole.WriteLine($"No resources found to axe");
+                return true;
             }
 
-            response.EnsureSuccessStatusCode();
-            return response;
+            // Iterate through the list of resources to axe
+            foreach (var resource in axeResources.Value)
+            {
+                // Split the resource ID into sections so we can get various parts of it
+                string[] sections = resource.Id.Split('/');
+                string resourceGroup = sections[4];
+                string provider = sections[6];
+                string resourceType = sections[7];
+
+                // If we are in what-if mode then just output the details of the resource to axe
+                if (settings.WhatIf)
+                {
+                    AnsiConsole.WriteLine($"Would axe {resource.Type} {resource.Name} in resource group {resourceGroup}");
+                    continue;
+                }
+
+                // Get the latest API version for the resource type
+                string? apiVersion = await GetLatestApiVersion(settings, provider, resourceType);
+
+                // If we can't get the latest API version then skip over this resource
+                if (apiVersion == null)
+                {
+                    AnsiConsole.WriteLine($"Unable to get latest API version for {resource.Type} {resource.Name} in resource group {resourceGroup}");
+                    continue;
+                }
+
+                // Build the URI for the delete request
+                var uri = new Uri($"{resource.Id}?api-version={apiVersion}", UriKind.Relative);
+
+                // Output the details of the delete request
+                AnsiConsole.WriteLine($"Axing {resource.Type} {resource.Name} in resource group {resourceGroup}");
+
+                // Make the delete request
+                var response = await _client.DeleteAsync(uri);
+
+                // If we are in debug mode then output the response
+                if (settings.Debug)
+                {
+                    AnsiConsole.WriteLine($"Response status code is {response.StatusCode}");
+                    if (!response.IsSuccessStatusCode)
+                    {
+                        AnsiConsole.WriteLine(
+                            $"Response content: {await response.Content.ReadAsStringAsync()}"
+                        );
+                    }
+                }
+
+                //response.EnsureSuccessStatusCode();
+            }
+
+            return true;
+        }
+
+        private async Task<string?> GetLatestApiVersion(AxeSettings settings, string provider, string type)
+        {
+            var apiVersion = await _client.GetAsync(
+                                   $"subscriptions/{settings.Subscription}/providers/{provider}/resourceTypes?api-version=2021-04-01");
+
+            var api = await apiVersion.Content.ReadAsStringAsync();
+            var allApiVersions = JsonConvert.DeserializeObject<ApiVersions>(api);
+
+            if (allApiVersions == null)
+            {
+                return null;
+            }
+
+            var apiTypeVersion = allApiVersions.Value.Where(x => x.ResourceType == type).First();
+
+            return apiTypeVersion.DefaultApiVersion ?? apiTypeVersion.ApiVersions.First();
+        }
+
+        private async Task<Resources?> GetAxeResourceList(AxeSettings settings)
+        {
+            var response = await _client.GetAsync(
+                               $"subscriptions/{settings.Subscription}/resources?$filter=substringof('{settings.Name}',name)&api-version=2021-04-01"
+                                          );
+
+            var json = await response.Content.ReadAsStringAsync();
+
+            return JsonConvert.DeserializeObject<Resources>(json);
         }
 
         private async Task GetAccessToken(bool includeDebugOutput)
