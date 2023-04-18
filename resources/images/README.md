@@ -1,0 +1,1 @@
+Part of the Beeching logo is based on the following image by dgim-studio on Freepik: [vintage-demon-skull-with-horns](https://www.freepik.com/free-vector/vintage-demon-skull-with-horns_7983887.htm#query=axe&position=33&from_view=search&track=sph)
