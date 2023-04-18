@@ -5,6 +5,7 @@ using Beeching.Models;
 using Newtonsoft.Json;
 using Polly;
 using Spectre.Console;
+using System;
 using System.Net.Http.Headers;
 
 namespace Beeching.Commands
@@ -29,8 +30,18 @@ namespace Beeching.Commands
             // If there are no resources to axe then drop out
             if (axeResources.Count == 0)
             {
-                AnsiConsole.Markup($"[green]No resources found to axe[/]");
+                if (!settings.SupressOutput)
+                {
+                    AnsiConsole.Markup($"[green]No resources found to axe[/]\n");
+                }
                 return true;
+            }
+
+            List<(Uri, string)> resourcesToAxe = new();
+
+            if (settings.WhatIf)
+            {
+                AnsiConsole.Markup($"[green]** Running What-If **[/]\n");
             }
 
             // Iterate through the list of resources to axe
@@ -60,7 +71,7 @@ namespace Beeching.Commands
                 // If we are in what-if mode then just output the details of the resource to axe
                 if (settings.WhatIf)
                 {
-                    AnsiConsole.WriteLine($"Would axe {outputMessage}");
+                    AnsiConsole.Markup($"[green]Would axe {outputMessage}[/]\n");
                     continue;
                 }
 
@@ -70,20 +81,52 @@ namespace Beeching.Commands
                 // If we can't get the latest API version then skip over this resource
                 if (apiVersion == null)
                 {
-                    AnsiConsole.WriteLine(
-                        $"Unable to get latest API version for {resource.Type} {resource.Name} in resource group {resourceGroup}"
-                    );
+                    if (!settings.SupressOutput)
+                    {
+                        AnsiConsole.Markup(
+                            $"[red]Unable to get latest API version for {outputMessage}[/]\n"
+                        );
+                    }
                     continue;
                 }
 
                 // Build the URI for the delete request
-                var uri = new Uri($"{resource.Id}?api-version={apiVersion}", UriKind.Relative);
+                resourcesToAxe.Add(
+                    (
+                        new Uri($"{resource.Id}?api-version={apiVersion}", UriKind.Relative),
+                        outputMessage
+                    )
+                );
+                AnsiConsole.Markup($"[green]Found: {outputMessage}[/]\n");
+            }
 
+            if (!settings.SkipConfirmation)
+            {
+                var confirm = AnsiConsole.Prompt(
+                    new SelectionPrompt<string>()
+                        .Title(
+                            "Are you sure you want to axe these resources? [red](This cannot be undone)[/]"
+                        )
+                        .AddChoices(new[] { "Yes", "No" })
+                );
+
+                if (confirm == "No")
+                {
+                    AnsiConsole.Markup($"[red]Resource axing abandoned[/]\n");
+                    return true;
+                }
+            }
+
+            foreach (var resource in resourcesToAxe)
+            {
                 // Output the details of the delete request
-                AnsiConsole.WriteLine($"Axing {outputMessage}");
+                if (!settings.SupressOutput)
+                {
+                    AnsiConsole.Markup($"[green]Axing {resource.Item2}[/]\n");
+                }
 
                 // Make the delete request
-                var response = await _client.DeleteAsync(uri);
+                var response = await _client.DeleteAsync(resource.Item1);
 
                 // If we are in debug mode then output the response
                 if (settings.Debug)
@@ -96,8 +139,11 @@ namespace Beeching.Commands
                         );
                     }
                 }
+            }
 
-                //response.EnsureSuccessStatusCode();
+            if (!settings.SupressOutput)
+            {
+                AnsiConsole.Markup($"[green]Resources axed[/]\n");
             }
 
             return true;
@@ -132,7 +178,12 @@ namespace Beeching.Commands
 
             if (!string.IsNullOrEmpty(settings.Name))
             {
-                AnsiConsole.Markup($"[green]Searching for resources where name contains '{settings.Name}'[/]\n");
+                if (!settings.SupressOutput)
+                {
+                    AnsiConsole.Markup(
+                        $"[green]Searching for resources where name contains '{settings.Name}'[/]\n"
+                    );
+                }
 
                 // Get the list of resources based on the name filter
                 var resourceResponse = await _client.GetAsync(
@@ -170,7 +221,12 @@ namespace Beeching.Commands
             {
                 var tag = settings.Tag.Split('|');
 
-                AnsiConsole.Markup($"[green]Searching for resources where tag '{tag[0]}' equals '{tag[1]}'[/]\n");
+                if (!settings.SupressOutput)
+                {
+                    AnsiConsole.Markup(
+                        $"[green]Searching for resources where tag '{tag[0]}' equals '{tag[1]}'[/]\n"
+                    );
+                }
 
                 // Get the list of resources based on the name filter
                 var resourceResponse = await _client.GetAsync(
@@ -208,14 +264,14 @@ namespace Beeching.Commands
             return resources;
         }
 
-        private async Task GetAccessToken(bool includeDebugOutput)
+        private async Task GetAccessToken(bool debug)
         {
             var tokenCredential = new ChainedTokenCredential(
                 new AzureCliCredential(),
                 new DefaultAzureCredential()
             );
 
-            if (includeDebugOutput)
+            if (debug)
             {
                 AnsiConsole.WriteLine(
                     $"Using token credential: {tokenCredential.GetType().Name} to fetch a token."
@@ -226,7 +282,7 @@ namespace Beeching.Commands
                 new TokenRequestContext(new[] { $"https://management.azure.com/.default" })
             );
 
-            if (includeDebugOutput)
+            if (debug)
             {
                 AnsiConsole.WriteLine($"Token retrieved and expires at: {token.ExpiresOn}");
             }

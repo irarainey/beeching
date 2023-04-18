@@ -22,6 +22,11 @@ namespace Beeching.Commands
                 return ValidationResult.Error("Debug and Quiet cannot both be specified.");
             }
 
+            if (settings.WhatIf && settings.SupressOutput)
+            {
+                return ValidationResult.Error("What If and Quiet cannot both be specified.");
+            }
+
             if (string.IsNullOrEmpty(settings.Name) && string.IsNullOrEmpty(settings.Tag))
             {
                 return ValidationResult.Error("A Name or Tag must be specified for resources to be axed.");
