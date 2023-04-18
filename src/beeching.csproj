@@ -17,13 +17,15 @@
     <PackageOutputPath>./nupkg</PackageOutputPath>
     <Version>0.1.0</Version>
     <Authors>Ira Rainey</Authors>
-    <Description>Command line tool to delete Azure resources</Description>
+    <Description>A .NET CLI tool to delete multiple Azure resources in a single sweep of the Beeching Axe.</Description>
     <PackageLicenseExpression>MIT</PackageLicenseExpression>
     <PackageProjectUrl>https://github.com/irarainey/beeching/</PackageProjectUrl>
     <RepositoryUrl>https://github.com/irarainey/beeching/</RepositoryUrl>
     <RepositoryType>git</RepositoryType>
     <PackageTags>azure;cli</PackageTags>
     <GeneratePackageOnBuild>True</GeneratePackageOnBuild>
+    <PackageIcon>128x128.png</PackageIcon>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
   </PropertyGroup>
 
   <ItemGroup>
@@ -36,6 +38,17 @@
 
   <ItemGroup>
     <None Remove="nupkg\**" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Include="..\README.md">
+      <Pack>True</Pack>
+      <PackagePath>\</PackagePath>
+    </None>
+    <None Include="..\resources\images\128x128.png">
+      <Pack>True</Pack>
+      <PackagePath>\</PackagePath>
+    </None>
   </ItemGroup>
 
   <ItemGroup>
