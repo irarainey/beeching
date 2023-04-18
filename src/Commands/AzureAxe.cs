@@ -149,14 +149,20 @@ namespace Beeching.Commands
                 // Make the delete request
                 var response = await _client.DeleteAsync(resource.Item1);
 
-                // If we are in debug mode then output the response
                 if (settings.Debug)
                 {
                     AnsiConsole.WriteLine($"Response status code is {response.StatusCode}");
+                    AnsiConsole.WriteLine(
+                        $"Response content: {await response.Content.ReadAsStringAsync()}"
+                    );
+                }
+
+                if (!settings.SupressOutput)
+                {
                     if (!response.IsSuccessStatusCode)
                     {
-                        AnsiConsole.WriteLine(
-                            $"Response content: {await response.Content.ReadAsStringAsync()}"
+                        AnsiConsole.Markup(
+                            $"[red]Axe failed: {response.StatusCode}[/]\n"
                         );
                     }
                 }
