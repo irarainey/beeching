@@ -286,7 +286,20 @@ namespace Beeching.Commands
 
                 if (foundResources != null)
                 {
-                    resources.AddRange(foundResources.Value);
+                    foreach (var resource in foundResources.Value)
+                    {
+                        if (!string.IsNullOrEmpty(settings.ResourceTypes))
+                        {
+                            if (allowedTypes.Contains(resource.Type))
+                            {
+                                resources.Add(resource);
+                            }
+                        }
+                        else
+                        {
+                            resources.Add(resource);
+                        }
+                    }
                 }
 
                 // Get the list of resource groups
@@ -304,7 +317,20 @@ namespace Beeching.Commands
                         .ToList();
                     if (groups != null)
                     {
-                        resources.AddRange(groups);
+                        foreach (var resource in groups)
+                        {
+                            if (!string.IsNullOrEmpty(settings.ResourceTypes))
+                            {
+                                if (allowedTypes.Contains(resource.Type))
+                                {
+                                    resources.Add(resource);
+                                }
+                            }
+                            else
+                            {
+                                resources.Add(resource);
+                            }
+                        }
                     }
                 }
             }
