@@ -28,7 +28,7 @@ To call to `beeching` and swing the axe, you need to run this from a user accoun
 
 ## Usage
 
-You can invoke the tool using the `beeching` command and by specifying your parameters. The most basic usage is to specify the name of the resources you want to axe. This will use your active Azure CLI subscription and will delete all resources that match the name or part of the name.
+You can invoke the tool using the `beeching` command and by specifying your parameters. The most basic usage is to specify the name of the resources you want to axe. This will use your active Azure CLI subscription and will delete all resources that match the name or part of the name. You can use the axe command, but this is optional as it is the default command.
 
 ```bash
 beeching axe --name my-resource-name
@@ -39,18 +39,18 @@ You can optionally provide a subscription id, but if you do not specify a subscr
 Resources can also be selected by tags. This will delete all resources that have a tag with the specified key and value. Tags are supplied as a single string in the format `key|value`.
 
 ```bash
-beeching axe --tag key|value
+beeching --tag key|value
 ```
 
 Once you have selected the resources you want to axe, you can optionally specify a list of resources to exclude from the axe. This allows you to protect resources that you wish to keep. The list of resources can be further restricted to only cull certain types of resource.
 
 ```bash
-beeching axe --name my-resource-name --exclude my-resource-name-to-keep --resource-types Microsoft.Network/virtualNetworks
+beeching --name my-resource --exclude my-resource-to-keep --resource-types Microsoft.Network/virtualNetworks
 ```
  Both of these options can be specified with multiple values separated by the `|` symbol.
 
 ```bash
-beeching axe --name my-resource-name --exclude keep001|keep002 --resource-types Microsoft.Network/virtualNetworks|Microsoft.Storage/storageAccounts
+beeching --name my-resource --exclude keep001|keep002 --resource-types Microsoft.Network/virtualNetworks|Microsoft.Storage/storageAccounts
 ```
 All of these options can be combined to create a very specific axe that will only delete the resources you want to delete.
 
