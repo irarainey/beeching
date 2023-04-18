@@ -22,7 +22,7 @@ namespace Beeching.Commands
         [CommandOption("-r|--resource-types")]
         [Description("Restict the types of the resources to axe.")]
         [DefaultValue("")]
-        public string[] ResourceTypes { get; set; }
+        public string ResourceTypes { get; set; }
 
         [CommandOption("-g|--resource-group")]
         [Description("Restrict the resource group of the resources to axe.")]
