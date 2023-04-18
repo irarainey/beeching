@@ -46,6 +46,13 @@ namespace Beeching.Commands
             // Iterate through the list of resources to axe
             foreach (var resource in axeResources)
             {
+                var exclusions = settings.Exclude.Split('|');
+                if (exclusions.Contains(resource.Name))
+                {
+                    AnsiConsole.Markup($"[green]Excluding {resource.Name}[/]\n");
+                    continue;
+                }
+
                 // Split the resource ID into sections so we can get various parts of it
                 string[] sections = resource.Id.Split('/');
                 string resourceGroup = sections[4];
@@ -97,6 +104,21 @@ namespace Beeching.Commands
                     )
                 );
                 AnsiConsole.Markup($"[green]Found: {outputMessage}[/]\n");
+            }
+
+            // If we are in what-if mode then drop out
+            if (settings.WhatIf)
+            {
+                return true;
+            }
+
+            if (resourcesToAxe.Count == 0)
+            {
+                if (!settings.SupressOutput)
+                {
+                    AnsiConsole.Markup($"[green]No resources found to axe[/]\n");
+                }
+                return true;
             }
 
             if (!settings.SkipConfirmation)
