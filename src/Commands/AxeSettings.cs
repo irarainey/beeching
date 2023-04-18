@@ -24,11 +24,6 @@ namespace Beeching.Commands
         [DefaultValue("")]
         public string ResourceTypes { get; set; }
 
-        [CommandOption("-g|--resource-group")]
-        [Description("Restrict the resource group of the resources to axe.")]
-        [DefaultValue("")]
-        public string ResourceGroup { get; set; }
-
         [CommandOption("-e|--exclude")]
         [Description("The names of resources to exclude from the axe.")]
         [DefaultValue("")]

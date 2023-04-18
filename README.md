@@ -49,18 +49,17 @@ USAGE:
     beeching [OPTIONS]
 
 OPTIONS:
-    -s, --subscription    The subscription id to use
-    -n, --name            The name (or partial name) of the resources to axe
-    -t, --tag             The tag key and value of the resources to axe
-    -r, --resource-types  Restrict the types of the resources to axe
-    -g, --resource-group  Restrict the resource group of the resources to axe
-    -e, --exclude         The name of the resources to exclude from the axe
-    -f, --force           Force the axe to delete the resources if locked
-    -y, --yes             Skip the confirmation prompt
-    -q, --quiet           Do not show any output
-    -w, --what-if         Show which resources would face the axe
-    -h, --help            Prints help information
-    -d, --debug           Increase logging verbosity to show all debug logs
+    -s, --subscription     The subscription id to use
+    -n, --name             The name (or partial name) of the resources to axe
+    -t, --tag              The tag key and value of the resources to axe
+    -r, --resource-types   Restrict the types of the resources to axe
+    -e, --exclude          The name of the resources to exclude from the axe
+    -f, --force            Force the axe to delete the resources if locked
+    -y, --yes              Skip the confirmation prompt
+    -q, --quiet            Do not show any output
+    -w, --what-if          Show which resources would face the axe
+    -h, --help             Prints help information
+    -d, --debug            Increase logging verbosity to show all debug logs
 
 COMMANDS:
     axe    The mighty axe that culls the resources
