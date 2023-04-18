@@ -23,6 +23,11 @@ namespace Beeching.Commands
             // Get the access token and add it to the request header for the http client
             await GetAccessToken(settings.Debug);
 
+            if (!settings.SupressOutput)
+            {
+                AnsiConsole.Markup($"[green]- Using subscription id {settings.Subscription}[/]\n");
+            }
+
             // Get the list of resources to axe based on the name filter
             List<Resource> axeResources = await GetAxeResourceList(settings);
 
@@ -31,7 +36,7 @@ namespace Beeching.Commands
             {
                 if (!settings.SupressOutput)
                 {
-                    AnsiConsole.Markup($"[green]No resources found to axe[/]\n");
+                    AnsiConsole.Markup($"[cyan]- No resources found to axe[/]\n");
                 }
                 return true;
             }
@@ -40,7 +45,7 @@ namespace Beeching.Commands
 
             if (settings.WhatIf)
             {
-                AnsiConsole.Markup($"[green]** Running What-If **[/]\n");
+                AnsiConsole.Markup($"[green]- ** Running What-If **[/]\n");
             }
 
             // Iterate through the list of resources to axe
@@ -49,7 +54,7 @@ namespace Beeching.Commands
                 var exclusions = settings.Exclude.Split(':');
                 if (exclusions.Contains(resource.Name))
                 {
-                    AnsiConsole.Markup($"[green]Excluding {resource.Name}[/]\n");
+                    AnsiConsole.Markup($"[green]- Excluding {resource.Name}[/]\n");
                     continue;
                 }
 
@@ -77,7 +82,7 @@ namespace Beeching.Commands
                 // If we are in what-if mode then just output the details of the resource to axe
                 if (settings.WhatIf)
                 {
-                    AnsiConsole.Markup($"[green]Would axe {outputMessage}[/]\n");
+                    AnsiConsole.Markup($"[green]- Would axe {outputMessage}[/]\n");
                     continue;
                 }
 
@@ -90,7 +95,7 @@ namespace Beeching.Commands
                     if (!settings.SupressOutput)
                     {
                         AnsiConsole.Markup(
-                            $"[red]Unable to get latest API version for {outputMessage}[/]\n"
+                            $"[red]- Unable to get latest API version for {outputMessage}[/]\n"
                         );
                     }
                     continue;
@@ -103,7 +108,7 @@ namespace Beeching.Commands
                         outputMessage
                     )
                 );
-                AnsiConsole.Markup($"[green]Found: {outputMessage}[/]\n");
+                AnsiConsole.Markup($"[green]- Found: {outputMessage}[/]\n");
             }
 
             // If we are in what-if mode then drop out
@@ -116,7 +121,7 @@ namespace Beeching.Commands
             {
                 if (!settings.SupressOutput)
                 {
-                    AnsiConsole.Markup($"[green]No resources found to axe[/]\n");
+                    AnsiConsole.Markup($"[cyan]- No resources found to axe[/]\n");
                 }
                 return true;
             }
@@ -126,14 +131,14 @@ namespace Beeching.Commands
                 var confirm = AnsiConsole.Prompt(
                     new SelectionPrompt<string>()
                         .Title(
-                            "Are you sure you want to axe these resources? [red](This cannot be undone)[/]"
+                            "\nAre you sure you want to axe these resources? [red](This cannot be undone)[/]"
                         )
                         .AddChoices(new[] { "Yes", "No" })
                 );
 
                 if (confirm == "No")
                 {
-                    AnsiConsole.Markup($"[red]Resource axing abandoned[/]\n");
+                    AnsiConsole.Markup($"[red]- Resource axing abandoned[/]\n");
                     return true;
                 }
             }
@@ -143,7 +148,7 @@ namespace Beeching.Commands
                 // Output the details of the delete request
                 if (!settings.SupressOutput)
                 {
-                    AnsiConsole.Markup($"[green]Axing {resource.Item2}[/]\n");
+                    AnsiConsole.Markup($"[green]- Axing {resource.Item2}[/]\n");
                 }
 
                 // Make the delete request
@@ -151,7 +156,7 @@ namespace Beeching.Commands
 
                 if (settings.Debug)
                 {
-                    AnsiConsole.WriteLine($"Response status code is {response.StatusCode}");
+                    AnsiConsole.WriteLine($"- Response status code is {response.StatusCode}");
                     AnsiConsole.WriteLine(
                         $"Response content: {await response.Content.ReadAsStringAsync()}"
                     );
@@ -162,7 +167,7 @@ namespace Beeching.Commands
                     if (!response.IsSuccessStatusCode)
                     {
                         AnsiConsole.Markup(
-                            $"[red]Axe failed: {response.StatusCode}[/]\n"
+                            $"[red]- Axe failed: {response.StatusCode}[/]\n"
                         );
                     }
                 }
@@ -170,7 +175,7 @@ namespace Beeching.Commands
 
             if (!settings.SupressOutput)
             {
-                AnsiConsole.Markup($"[green]Resources axed[/]\n");
+                AnsiConsole.Markup($"[green]- All resources axed[/]\n");
             }
 
             return true;
@@ -209,7 +214,7 @@ namespace Beeching.Commands
                 if (!settings.SupressOutput)
                 {
                     AnsiConsole.Markup(
-                        $"[green]Searching for resources where name contains '{settings.Name}'[/]\n"
+                        $"[green]- Searching for resources where name contains '{settings.Name}'[/]\n"
                     );
                 }
 
@@ -278,7 +283,7 @@ namespace Beeching.Commands
                 if (!settings.SupressOutput)
                 {
                     AnsiConsole.Markup(
-                        $"[green]Searching for resources where tag '{tag[0]}' equals '{tag[1]}'[/]\n"
+                        $"[green]- Searching for resources where tag '{tag[0]}' equals '{tag[1]}'[/]\n"
                     );
                 }
 
@@ -354,7 +359,7 @@ namespace Beeching.Commands
             if (debug)
             {
                 AnsiConsole.WriteLine(
-                    $"Using token credential: {tokenCredential.GetType().Name} to fetch a token."
+                    $"- Using token credential: {tokenCredential.GetType().Name} to fetch a token."
                 );
             }
 
@@ -364,7 +369,7 @@ namespace Beeching.Commands
 
             if (debug)
             {
-                AnsiConsole.WriteLine($"Token retrieved and expires at: {token.ExpiresOn}");
+                AnsiConsole.WriteLine($"- Token retrieved and expires at: {token.ExpiresOn}");
             }
 
             _client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue(

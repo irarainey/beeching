@@ -58,6 +58,12 @@ namespace Beeching.Commands
                 return 0;
             }
 
+            if(!settings.SupressOutput)
+            {
+                string header = " _                    _     _             \r\n| |                  | |   (_)            \r\n| |__   ___  ___  ___| |__  _ _ __   __ _ \r\n| '_ \\ / _ \\/ _ \\/ __| '_ \\| | '_ \\ / _` |\r\n| |_) |  __/  __/ (__| | | | | | | | (_| |\r\n|_.__/ \\___|\\___|\\___|_| |_|_|_| |_|\\__, |\r\n                                     __/ |\r\n                                    |___/\n ";
+                AnsiConsole.Markup($"[green]{header}[/]\n");
+            }
+
             if (settings.Debug)
             {
                 AnsiConsole.WriteLine($"Version: {GetVersion()}");
