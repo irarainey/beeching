@@ -18,11 +18,11 @@ namespace Beeching.Commands
         public string Tag { get; set; } = "";
 
         [CommandOption("-r|--resource-types")]
-        [Description("The types of the resources to axe.")]
+        [Description("Restict the types of the resources to axe.")]
         public string[] ResourceTypes { get; set; } = Array.Empty<string>();
 
         [CommandOption("-g|--resource-group")]
-        [Description("The resource group of the resources to axe.")]
+        [Description("Restrict the resource group of the resources to axe.")]
         public string ResourceGroup { get; set; } = "";
 
         [CommandOption("-e|--exclude")]

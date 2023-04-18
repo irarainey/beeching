@@ -52,8 +52,8 @@ OPTIONS:
     -s, --subscription    The subscription id to use
     -n, --name            The name (or partial name) of the resources to axe
     -t, --tag             The tag key and value of the resources to axe
-    -r, --resource-types  The types of the resources to axe
-    -g, --resource-group  The resource group of the resources to axe
+    -r, --resource-types  Restrict the types of the resources to axe
+    -g, --resource-group  Restrict the resource group of the resources to axe
     -e, --exclude         The name of the resources to exclude from the axe
     -f, --force           Force the axe to delete the resources if locked
     -y, --yes             Skip the confirmation prompt
@@ -70,4 +70,6 @@ COMMANDS:
 
 ## Disclaimer
 
-Warning: This tool does not muck about. It really deletes your resources and there is no way to recover them. Make sure you have a backup of your resources before you use this tool. No responsibility is taken for any damage caused by this tool. Several safety measures are in place to prevent accidental deletion of resources, such as a confirmation prompt and a what-if mode, but it is still possible to delete resources you did not intend to delete. Use at your own risk.
+Warning: This tool does not muck about. It really deletes your resources and there is no way to recover them. Make sure you have a backup of your resources before you use this tool. No responsibility is taken for any damage caused by this tool.
+
+Several safety measures are in place to prevent accidental deletion of resources, such as a confirmation prompt and a what-if mode, but it is still possible to delete resources you did not intend to delete. Unlike the real Beeching Axe there is no option for a heritage railway here. Use at your own risk.
