@@ -89,6 +89,7 @@ OPTIONS:
     -w, --what-if          Show which resources would face the axe
     -h, --help             Prints help information
     -d, --debug            Increase logging verbosity to show all debug logs
+    -v, --version          Reports the application version
 
 COMMANDS:
     axe    The mighty axe that culls the resources

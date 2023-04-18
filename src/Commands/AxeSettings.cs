@@ -53,5 +53,10 @@ namespace Beeching.Commands
         [Description("Increase logging verbosity to show all debug logs.")]
         [DefaultValue(false)]
         public bool Debug { get; set; }
+
+        [CommandOption("-v|--version")]
+        [Description("Reports the application version.")]
+        [DefaultValue(false)]
+        public bool Version { get; set; }
     }
 }

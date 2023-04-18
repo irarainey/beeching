@@ -17,6 +17,16 @@ namespace Beeching.Commands
 
         public override ValidationResult Validate(CommandContext context, AxeSettings settings)
         {
+            if (settings.Version)
+            {
+                return ValidationResult.Success();
+            }
+
+            if (settings.Force)
+            {
+                return ValidationResult.Error("Force is not yet implemented.");
+            }
+
             if (settings.Debug && settings.SupressOutput)
             {
                 return ValidationResult.Error("Debug and Quiet cannot both be specified.");
@@ -27,19 +37,14 @@ namespace Beeching.Commands
                 return ValidationResult.Error("What If and Quiet cannot both be specified.");
             }
 
-            if (string.IsNullOrEmpty(settings.Name) && string.IsNullOrEmpty(settings.Tag))
-            {
-                return ValidationResult.Error("A Name or Tag must be specified for resources to be axed.");
-            }
-
             if (!string.IsNullOrEmpty(settings.Name) && !string.IsNullOrEmpty(settings.Tag))
             {
                 return ValidationResult.Error("Only one of Name or Tag can be specified for resources to be axed.");
             }
 
-            if (settings.Force)
+            if (string.IsNullOrEmpty(settings.Name) && string.IsNullOrEmpty(settings.Tag))
             {
-                return ValidationResult.Error("Force is not yet implemented.");
+                return ValidationResult.Error("A Name or Tag must be specified for resources to be axed.");
             }
 
             return ValidationResult.Success();
@@ -47,9 +52,15 @@ namespace Beeching.Commands
 
         public override async Task<int> ExecuteAsync(CommandContext context, AxeSettings settings)
         {
+            if (settings.Version)
+            {
+                AnsiConsole.WriteLine($"{GetVersion()}");
+                return 0;
+            }
+
             if (settings.Debug)
             {
-                AnsiConsole.WriteLine($"Version: {typeof(AxeCommand).Assembly.GetName().Version}");
+                AnsiConsole.WriteLine($"Version: {GetVersion()}");
             }
 
             var subscriptionId = settings.Subscription;
@@ -91,6 +102,19 @@ namespace Beeching.Commands
             bool status = await _azureAxe.AxeResources(settings);
 
             return status ? 0 : -1;
+        }
+
+        private static string GetVersion()
+        {
+            var version = typeof(AxeCommand).Assembly.GetName().Version;
+            if (version != null)
+            {
+                return $"{version.Major}.{version.Minor}.{version.Revision}";
+            }
+            else
+            {
+                return "Unknown";
+            }
         }
 
         private static string GetDefaultAzureSubscriptionId()
