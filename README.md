@@ -28,7 +28,7 @@ To call to `beeching` and swing the axe, you need to run this from a user accoun
 
 ## Usage
 
-You can invoke the tool using the `beeching` command and by specifying your parameters. The most basic usage is to specify the name of the resources you want to axe. This will use your active Azure CLI subscription and will delete all resources that match the name.
+You can invoke the tool using the `beeching` command and by specifying your parameters. The most basic usage is to specify the name of the resources you want to axe. This will use your active Azure CLI subscription and will delete all resources that match the name or part of the name.
 
 ```bash
 beeching axe --name my-resource-name
