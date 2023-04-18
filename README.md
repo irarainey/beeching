@@ -51,7 +51,7 @@ USAGE:
 OPTIONS:
     -s, --subscription    The subscription id to use
     -n, --name            The name (or partial name) of the resources to axe
-    -t, --tag             The tag value of the resources to axe
+    -t, --tag             The tag key and value of the resources to axe
     -r, --resource-types  The types of the resources to axe
     -g, --resource-group  The resource group of the resources to axe
     -e, --exclude         The name of the resources to exclude from the axe
