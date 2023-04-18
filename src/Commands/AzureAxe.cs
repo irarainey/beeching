@@ -24,28 +24,42 @@ namespace Beeching.Commands
             await GetAccessToken(settings.Debug);
 
             // Get the list of resources to axe based on the name filter
-            Resources? axeResources = await GetAxeResourceList(settings);
+            List<Resource> axeResources = await GetAxeResourceList(settings);
 
             // If there are no resources to axe then drop out
-            if (axeResources == null || axeResources.Value.Count == 0)
+            if (axeResources.Count == 0)
             {
-                AnsiConsole.WriteLine($"No resources found to axe");
+                AnsiConsole.Markup($"[green]No resources found to axe[/]");
                 return true;
             }
 
             // Iterate through the list of resources to axe
-            foreach (var resource in axeResources.Value)
+            foreach (var resource in axeResources)
             {
                 // Split the resource ID into sections so we can get various parts of it
                 string[] sections = resource.Id.Split('/');
                 string resourceGroup = sections[4];
-                string provider = sections[6];
-                string resourceType = sections[7];
+                string provider;
+                string resourceType;
+                string outputMessage;
+
+                if (resource.Type != "Microsoft.Resources/resourceGroups")
+                {
+                    provider = sections[6];
+                    resourceType = sections[7];
+                    outputMessage = $"{resource.Type} {resource.Name} in resource group {resourceGroup}";
+                }
+                else
+                {
+                    provider = "Microsoft.Resources";
+                    resourceType = "resourceGroups";
+                    outputMessage = $"{resource.Type} {resource.Name}";
+                }
 
                 // If we are in what-if mode then just output the details of the resource to axe
                 if (settings.WhatIf)
                 {
-                    AnsiConsole.WriteLine($"Would axe {resource.Type} {resource.Name} in resource group {resourceGroup}");
+                    AnsiConsole.WriteLine($"Would axe {outputMessage}");
                     continue;
                 }
 
@@ -63,7 +77,7 @@ namespace Beeching.Commands
                 var uri = new Uri($"{resource.Id}?api-version={apiVersion}", UriKind.Relative);
 
                 // Output the details of the delete request
-                AnsiConsole.WriteLine($"Axing {resource.Type} {resource.Name} in resource group {resourceGroup}");
+                AnsiConsole.WriteLine($"Axing {outputMessage}");
 
                 // Make the delete request
                 var response = await _client.DeleteAsync(uri);
@@ -104,15 +118,41 @@ namespace Beeching.Commands
             return apiTypeVersion.DefaultApiVersion ?? apiTypeVersion.ApiVersions.First();
         }
 
-        private async Task<Resources?> GetAxeResourceList(AxeSettings settings)
+        private async Task<List<Resource>> GetAxeResourceList(AxeSettings settings)
         {
-            var response = await _client.GetAsync(
+            var resources = new List<Resource>();
+
+            // Get the list of resources based on the name filter
+            var resourceResponse = await _client.GetAsync(
                                $"subscriptions/{settings.Subscription}/resources?$filter=substringof('{settings.Name}',name)&api-version=2021-04-01"
                                           );
 
-            var json = await response.Content.ReadAsStringAsync();
+            var resourceJson = await resourceResponse.Content.ReadAsStringAsync();
+            var foundResources = JsonConvert.DeserializeObject<Resources>(resourceJson);
 
-            return JsonConvert.DeserializeObject<Resources>(json);
+            if (foundResources != null)
+            {
+                resources.AddRange(foundResources.Value);
+            }
+
+            // Get the list of resource groups
+            var groupsResponse = await _client.GetAsync(
+                               $"subscriptions/{settings.Subscription}/resourcegroups?api-version=2021-04-01"
+                                          );
+
+            var groupJson = await groupsResponse.Content.ReadAsStringAsync();
+            var foundGroups = JsonConvert.DeserializeObject<Resources>(groupJson);
+
+            if (foundGroups != null)
+            {
+                var groups = foundGroups.Value.Where(x => x.Name.Contains(settings.Name)).ToList();
+                if (groups != null)
+                {
+                    resources.AddRange(groups);
+                }
+            }
+
+            return resources;
         }
 
         private async Task GetAccessToken(bool includeDebugOutput)
