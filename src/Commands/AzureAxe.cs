@@ -36,7 +36,7 @@ namespace Beeching.Commands
             {
                 if (!settings.SupressOutput)
                 {
-                    AnsiConsole.Markup($"[cyan]- No resources found to axe[/]\n");
+                    AnsiConsole.Markup($"[cyan]- No resources found to axe[/]\n\n");
                 }
                 return true;
             }
@@ -121,7 +121,7 @@ namespace Beeching.Commands
             {
                 if (!settings.SupressOutput)
                 {
-                    AnsiConsole.Markup($"[cyan]- No resources found to axe[/]\n");
+                    AnsiConsole.Markup($"[cyan]- No resources found to axe[/]\n\n");
                 }
                 return true;
             }
@@ -138,7 +138,7 @@ namespace Beeching.Commands
 
                 if (confirm == "No")
                 {
-                    AnsiConsole.Markup($"[red]- Resource axing abandoned[/]\n");
+                    AnsiConsole.Markup($"[red]- Resource axing abandoned[/]\n\n");
                     return true;
                 }
             }
@@ -175,7 +175,7 @@ namespace Beeching.Commands
 
             if (!settings.SupressOutput)
             {
-                AnsiConsole.Markup($"[green]- All resources axed[/]\n");
+                AnsiConsole.Markup($"[green]- All resources axed[/]\n\n");
             }
 
             return true;

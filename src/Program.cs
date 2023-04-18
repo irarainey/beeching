@@ -5,8 +5,6 @@ using Microsoft.Extensions.DependencyInjection;
 using Spectre.Console;
 using Spectre.Console.Cli;
 
-AnsiConsole.Console.Clear();
-
 var registrations = new ServiceCollection();
 
 registrations
