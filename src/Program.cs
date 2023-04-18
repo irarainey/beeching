@@ -2,7 +2,6 @@
 using Beeching.Commands.Interfaces;
 using Beeching.Infrastructure;
 using Microsoft.Extensions.DependencyInjection;
-using Spectre.Console;
 using Spectre.Console.Cli;
 
 var registrations = new ServiceCollection();

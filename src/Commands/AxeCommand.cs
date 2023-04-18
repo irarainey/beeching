@@ -60,7 +60,7 @@ namespace Beeching.Commands
 
             if(!settings.SupressOutput)
             {
-                string header = " _                    _     _             \r\n| |                  | |   (_)            \r\n| |__   ___  ___  ___| |__  _ _ __   __ _ \r\n| '_ \\ / _ \\/ _ \\/ __| '_ \\| | '_ \\ / _` |\r\n| |_) |  __/  __/ (__| | | | | | | | (_| |\r\n|_.__/ \\___|\\___|\\___|_| |_|_|_| |_|\\__, |\r\n                                     __/ |\r\n                                    |___/\n ";
+                string header = "\n _                    _     _             \r\n| |                  | |   (_)            \r\n| |__   ___  ___  ___| |__  _ _ __   __ _ \r\n| '_ \\ / _ \\/ _ \\/ __| '_ \\| | '_ \\ / _` |\r\n| |_) |  __/  __/ (__| | | | | | | | (_| |\r\n|_.__/ \\___|\\___|\\___|_| |_|_|_| |_|\\__, |\r\n                                     __/ |\r\n                                    |___/\n ";
                 AnsiConsole.Markup($"[green]{header}[/]\n");
             }
 
@@ -115,7 +115,7 @@ namespace Beeching.Commands
             var version = typeof(AxeCommand).Assembly.GetName().Version;
             if (version != null)
             {
-                return $"{version.Major}.{version.Minor}.{version.Revision}";
+                return $"{version.Major}.{version.Minor}.{version.Build}";
             }
             else
             {
