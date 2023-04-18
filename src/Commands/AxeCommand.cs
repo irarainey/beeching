@@ -17,15 +17,19 @@ namespace Beeching.Commands
 
         public override ValidationResult Validate(CommandContext context, AxeSettings settings)
         {
-            // Check that we have been given some way to identify the resources to axe
-            if (string.IsNullOrEmpty(settings.Id) && string.IsNullOrEmpty(settings.Name) && string.IsNullOrEmpty(settings.Tag))
+            if (settings.Debug && settings.SupressOutput)
             {
-                return ValidationResult.Error("An Id, Name, or Tag must be specified for resources to be axed.");
+                return ValidationResult.Error("Debug and Quiet cannot both be specified.");
             }
 
-            // Check that only one of Id, Name, or Tag has been specified
+            if (string.IsNullOrEmpty(settings.Name) && string.IsNullOrEmpty(settings.Tag))
+            {
+                return ValidationResult.Error("A Name or Tag must be specified for resources to be axed.");
+            }
 
-            // Check that valid values have been specified for the Id, Name, or Tag parameters
+            // Check that only one of Name or Tag has been specified
+
+            // Check that valid values have been specified for the Name or Tag parameters
 
             return ValidationResult.Success();
         }
