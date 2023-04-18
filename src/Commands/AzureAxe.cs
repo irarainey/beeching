@@ -47,7 +47,8 @@ namespace Beeching.Commands
                 {
                     provider = sections[6];
                     resourceType = sections[7];
-                    outputMessage = $"{resource.Type} {resource.Name} in resource group {resourceGroup}";
+                    outputMessage =
+                        $"{resource.Type} {resource.Name} in resource group {resourceGroup}";
                 }
                 else
                 {
@@ -69,7 +70,9 @@ namespace Beeching.Commands
                 // If we can't get the latest API version then skip over this resource
                 if (apiVersion == null)
                 {
-                    AnsiConsole.WriteLine($"Unable to get latest API version for {resource.Type} {resource.Name} in resource group {resourceGroup}");
+                    AnsiConsole.WriteLine(
+                        $"Unable to get latest API version for {resource.Type} {resource.Name} in resource group {resourceGroup}"
+                    );
                     continue;
                 }
 
@@ -100,10 +103,15 @@ namespace Beeching.Commands
             return true;
         }
 
-        private async Task<string?> GetLatestApiVersion(AxeSettings settings, string provider, string type)
+        private async Task<string?> GetLatestApiVersion(
+            AxeSettings settings,
+            string provider,
+            string type
+        )
         {
             var apiVersion = await _client.GetAsync(
-                                   $"subscriptions/{settings.Subscription}/providers/{provider}/resourceTypes?api-version=2021-04-01");
+                $"subscriptions/{settings.Subscription}/providers/{provider}/resourceTypes?api-version=2021-04-01"
+            );
 
             var api = await apiVersion.Content.ReadAsStringAsync();
             var allApiVersions = JsonConvert.DeserializeObject<ApiVersions>(api);
@@ -122,33 +130,78 @@ namespace Beeching.Commands
         {
             var resources = new List<Resource>();
 
-            // Get the list of resources based on the name filter
-            var resourceResponse = await _client.GetAsync(
-                               $"subscriptions/{settings.Subscription}/resources?$filter=substringof('{settings.Name}',name)&api-version=2021-04-01"
-                                          );
-
-            var resourceJson = await resourceResponse.Content.ReadAsStringAsync();
-            var foundResources = JsonConvert.DeserializeObject<Resources>(resourceJson);
-
-            if (foundResources != null)
+            if (!string.IsNullOrEmpty(settings.Name))
             {
-                resources.AddRange(foundResources.Value);
-            }
+                AnsiConsole.Markup($"[green]Searching for resources where name contains '{settings.Name}'[/]\n");
 
-            // Get the list of resource groups
-            var groupsResponse = await _client.GetAsync(
-                               $"subscriptions/{settings.Subscription}/resourcegroups?api-version=2021-04-01"
-                                          );
+                // Get the list of resources based on the name filter
+                var resourceResponse = await _client.GetAsync(
+                    $"subscriptions/{settings.Subscription}/resources?$filter=substringof('{settings.Name}',name)&api-version=2021-04-01"
+                );
 
-            var groupJson = await groupsResponse.Content.ReadAsStringAsync();
-            var foundGroups = JsonConvert.DeserializeObject<Resources>(groupJson);
+                var resourceJson = await resourceResponse.Content.ReadAsStringAsync();
+                var foundResources = JsonConvert.DeserializeObject<Resources>(resourceJson);
 
-            if (foundGroups != null)
-            {
-                var groups = foundGroups.Value.Where(x => x.Name.Contains(settings.Name)).ToList();
-                if (groups != null)
+                if (foundResources != null)
                 {
-                    resources.AddRange(groups);
+                    resources.AddRange(foundResources.Value);
+                }
+
+                // Get the list of resource groups
+                var groupsResponse = await _client.GetAsync(
+                    $"subscriptions/{settings.Subscription}/resourcegroups?api-version=2021-04-01"
+                );
+
+                var groupJson = await groupsResponse.Content.ReadAsStringAsync();
+                var foundGroups = JsonConvert.DeserializeObject<Resources>(groupJson);
+
+                if (foundGroups != null)
+                {
+                    var groups = foundGroups.Value
+                        .Where(x => x.Name.Contains(settings.Name))
+                        .ToList();
+                    if (groups != null)
+                    {
+                        resources.AddRange(groups);
+                    }
+                }
+            }
+            else
+            {
+                var tag = settings.Tag.Split('|');
+
+                AnsiConsole.Markup($"[green]Searching for resources where tag '{tag[0]}' equals '{tag[1]}'[/]\n");
+
+                // Get the list of resources based on the name filter
+                var resourceResponse = await _client.GetAsync(
+                    $"subscriptions/{settings.Subscription}/resources?$filter=tagName eq '{tag[0]}' and tagValue eq '{tag[1]}'&api-version=2021-04-01"
+                );
+
+                var resourceJson = await resourceResponse.Content.ReadAsStringAsync();
+                var foundResources = JsonConvert.DeserializeObject<Resources>(resourceJson);
+
+                if (foundResources != null)
+                {
+                    resources.AddRange(foundResources.Value);
+                }
+
+                // Get the list of resource groups
+                var groupsResponse = await _client.GetAsync(
+                    $"subscriptions/{settings.Subscription}/resourcegroups?$filter=tagName eq '{tag[0]}' and tagValue eq '{tag[1]}'&api-version=2021-04-01"
+                );
+
+                var groupJson = await groupsResponse.Content.ReadAsStringAsync();
+                var foundGroups = JsonConvert.DeserializeObject<Resources>(groupJson);
+
+                if (foundGroups != null)
+                {
+                    var groups = foundGroups.Value
+                        .Where(x => x.Name.Contains(settings.Name))
+                        .ToList();
+                    if (groups != null)
+                    {
+                        resources.AddRange(groups);
+                    }
                 }
             }
 

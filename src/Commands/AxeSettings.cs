@@ -11,11 +11,11 @@ namespace Beeching.Commands
 
         [CommandOption("-n|--name")]
         [Description("The name (or partial name) of the resources to axe.")]
-        public string? Name { get; set; }
+        public string Name { get; set; } = "";
 
         [CommandOption("-t|--tag")]
         [Description("The tag value of the resources to axe.")]
-        public string? Tag { get; set; }
+        public string Tag { get; set; } = "";
 
         [CommandOption("-r|--resource-types")]
         [Description("The types of the resources to axe.")]
@@ -23,7 +23,7 @@ namespace Beeching.Commands
 
         [CommandOption("-g|--resource-group")]
         [Description("The resource group of the resources to axe.")]
-        public string? ResourceGroup { get; set; }
+        public string ResourceGroup { get; set; } = "";
 
         [CommandOption("-e|--exclude")]
         [Description("The names of resources to exclude from the axe.")]

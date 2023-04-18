@@ -27,9 +27,10 @@ namespace Beeching.Commands
                 return ValidationResult.Error("A Name or Tag must be specified for resources to be axed.");
             }
 
-            // Check that only one of Name or Tag has been specified
-
-            // Check that valid values have been specified for the Name or Tag parameters
+            if (!string.IsNullOrEmpty(settings.Name) && !string.IsNullOrEmpty(settings.Tag))
+            {
+                return ValidationResult.Error("Only one of Name or Tag can be specified for resources to be axed.");
+            }
 
             return ValidationResult.Success();
         }

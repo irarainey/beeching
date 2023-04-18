@@ -47,8 +47,6 @@
     <PackageReference Include="Polly.Extensions.Http" Version="3.0.0" />
     <PackageReference Include="Spectre.Console" Version="0.46.0" />
     <PackageReference Include="Spectre.Console.Cli" Version="0.46.0" />
-    <PackageReference Include="Spectre.Console.Extensions.Progress" Version="1.0.0" />
-    <PackageReference Include="Spectre.Console.Json" Version="0.46.0" />
   </ItemGroup>
 
 </Project>
