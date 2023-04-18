@@ -36,10 +36,10 @@ beeching axe --name my-resource-name
 
 You can optionally provide a subscription id, but if you do not specify a subscription, it will use the actively selected subscription from the Azure CLI. Any subscription id you provide must be a valid subscription id for the currently logged in user.
 
-Resources can also be selected by tags. This will delete all resources that have a tag with the specified key and value. Tags are supplied as a single string in the format `key|value`.
+Resources can also be selected by tags. This will delete all resources that have a tag with the specified key and value. Tags are supplied as a single string in the format `key:value`.
 
 ```bash
-beeching --tag key|value
+beeching --tag key:value
 ```
 
 Once you have selected the resources you want to axe, you can optionally specify a list of resources to exclude from the axe. This allows you to protect resources that you wish to keep. The list of resources can be further restricted to only cull certain types of resource.
@@ -47,10 +47,10 @@ Once you have selected the resources you want to axe, you can optionally specify
 ```bash
 beeching --name my-resource --exclude my-resource-to-keep --resource-types Microsoft.Network/virtualNetworks
 ```
- Both of these options can be specified with multiple values separated by the `|` symbol.
+ Both of these options can be specified with multiple values separated by the `:` symbol.
 
 ```bash
-beeching --name my-resource --exclude keep001|keep002 --resource-types Microsoft.Network/virtualNetworks|Microsoft.Storage/storageAccounts
+beeching --name my-resource --exclude keep001:keep002 --resource-types Microsoft.Network/virtualNetworks:Microsoft.Storage/storageAccounts
 ```
 All of these options can be combined to create a very specific axe that will only delete the resources you want to delete.
 
@@ -91,6 +91,6 @@ COMMANDS:
 
 ## Disclaimer
 
-Warning: This tool does not muck about. It really deletes your resources and there is no way to recover them. Make sure you have a backup of your resources before you use this tool. No responsibility is taken for any damage caused by this tool.
+**Warning:** This tool does not muck about. It really deletes your resources and there is no way to recover them. Make sure you have a backup of your resources before you use this tool. No responsibility is taken for any damage caused by this tool.
 
 Several safety measures are in place to prevent accidental deletion of resources, such as a confirmation prompt, a what-if mode, and exclusion options, but it is still possible to delete resources you did not intend to delete. Unlike the real Beeching Axe there is no option for a heritage railway here. Use at your own risk.

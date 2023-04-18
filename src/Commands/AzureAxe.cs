@@ -46,7 +46,7 @@ namespace Beeching.Commands
             // Iterate through the list of resources to axe
             foreach (var resource in axeResources)
             {
-                var exclusions = settings.Exclude.Split('|');
+                var exclusions = settings.Exclude.Split(':');
                 if (exclusions.Contains(resource.Name))
                 {
                     AnsiConsole.Markup($"[green]Excluding {resource.Name}[/]\n");
@@ -202,7 +202,7 @@ namespace Beeching.Commands
         private async Task<List<Resource>> GetAxeResourceList(AxeSettings settings)
         {
             var resources = new List<Resource>();
-            var allowedTypes = settings.ResourceTypes.Split('|');
+            var allowedTypes = settings.ResourceTypes.Split(':');
 
             if (!string.IsNullOrEmpty(settings.Name))
             {
@@ -273,7 +273,7 @@ namespace Beeching.Commands
             }
             else
             {
-                var tag = settings.Tag.Split('|');
+                var tag = settings.Tag.Split(':');
 
                 if (!settings.SupressOutput)
                 {
