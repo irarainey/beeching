@@ -36,7 +36,29 @@ beeching axe --name my-resource-name
 
 You can optionally provide a subscription id, but if you do not specify a subscription, it will use the actively selected subscription from the Azure CLI. Any subscription id you provide must be a valid subscription id for the currently logged in user.
 
-You can use the `--help` parameter to get a list of all available options.
+Resources can also be selected by tags. This will delete all resources that have a tag with the specified key and value. Tags are supplied as a single string in the format `key|value`.
+
+```bash
+beeching axe --tag key|value
+```
+
+Once you have selected the resources you want to axe, you can optionally specify a list of resources to exclude from the axe. This allows you to protect resources that you wish to keep. The list of resources can be further restricted to only cull certain types of resource.
+
+```bash
+beeching axe --name my-resource-name --exclude my-resource-name-to-keep --resource-types Microsoft.Network/virtualNetworks
+```
+ Both of these options can be specified with multiple values separated by the `|` symbol.
+
+```bash
+beeching axe --name my-resource-name --exclude keep001|keep002 --resource-types Microsoft.Network/virtualNetworks|Microsoft.Storage/storageAccounts
+```
+All of these options can be combined to create a very specific axe that will only delete the resources you want to delete.
+
+It is also possible to use the `--what-if` parameter to see which resources would face the axe. This will show you the list of resources that would be deleted, but will not actually delete them.
+
+Before any resources are deleted, you will be prompted to confirm that you want to delete the resources. You can skip this prompt by using the `--yes` parameter.
+
+You can also use the `--help` parameter to get a list of all available options.
 
 ```bash
 beeching --help
