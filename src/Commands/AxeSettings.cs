@@ -30,7 +30,7 @@ namespace Beeching.Commands
         public string[] Exclude { get; set; } = Array.Empty<string>();
 
         [CommandOption("-f|--force")]
-        [Description("Force the axe to delete the resources.")]
+        [Description("Force the axe to delete the resources if locked.")]
         public bool Force { get; set; } = false;
 
         [CommandOption("-y|--yes")]
