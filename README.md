@@ -72,4 +72,4 @@ COMMANDS:
 
 Warning: This tool does not muck about. It really deletes your resources and there is no way to recover them. Make sure you have a backup of your resources before you use this tool. No responsibility is taken for any damage caused by this tool.
 
-Several safety measures are in place to prevent accidental deletion of resources, such as a confirmation prompt and a what-if mode, but it is still possible to delete resources you did not intend to delete. Unlike the real Beeching Axe there is no option for a heritage railway here. Use at your own risk.
+Several safety measures are in place to prevent accidental deletion of resources, such as a confirmation prompt, a what-if mode, and exclusion options, but it is still possible to delete resources you did not intend to delete. Unlike the real Beeching Axe there is no option for a heritage railway here. Use at your own risk.

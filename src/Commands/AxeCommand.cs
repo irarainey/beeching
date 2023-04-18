@@ -37,6 +37,11 @@ namespace Beeching.Commands
                 return ValidationResult.Error("Only one of Name or Tag can be specified for resources to be axed.");
             }
 
+            if (settings.Force)
+            {
+                return ValidationResult.Error("Force is not yet implemented.");
+            }
+
             return ValidationResult.Success();
         }
 

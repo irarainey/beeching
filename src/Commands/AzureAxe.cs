@@ -5,7 +5,6 @@ using Beeching.Models;
 using Newtonsoft.Json;
 using Polly;
 using Spectre.Console;
-using System;
 using System.Net.Http.Headers;
 
 namespace Beeching.Commands
