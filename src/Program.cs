@@ -26,7 +26,8 @@ var app = new CommandApp<AxeCommand>(registrar);
 app.Configure(config =>
 {
     config.SetApplicationName("beeching");
-    config.AddCommand<AxeCommand>("axe")
+    config
+        .AddCommand<AxeCommand>("axe")
         .WithDescription("The mighty axe that culls the resources.");
 
 #if DEBUG

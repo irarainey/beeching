@@ -39,12 +39,16 @@ namespace Beeching.Commands
 
             if (!string.IsNullOrEmpty(settings.Name) && !string.IsNullOrEmpty(settings.Tag))
             {
-                return ValidationResult.Error("Only one of Name or Tag can be specified for resources to be axed.");
+                return ValidationResult.Error(
+                    "Only one of Name or Tag can be specified for resources to be axed."
+                );
             }
 
             if (string.IsNullOrEmpty(settings.Name) && string.IsNullOrEmpty(settings.Tag))
             {
-                return ValidationResult.Error("A Name or Tag must be specified for resources to be axed.");
+                return ValidationResult.Error(
+                    "A Name or Tag must be specified for resources to be axed."
+                );
             }
 
             return ValidationResult.Success();
@@ -58,9 +62,10 @@ namespace Beeching.Commands
                 return 0;
             }
 
-            if(!settings.SupressOutput)
+            if (!settings.SupressOutput)
             {
-                string header = "\n _                    _     _             \r\n| |                  | |   (_)            \r\n| |__   ___  ___  ___| |__  _ _ __   __ _ \r\n| '_ \\ / _ \\/ _ \\/ __| '_ \\| | '_ \\ / _` |\r\n| |_) |  __/  __/ (__| | | | | | | | (_| |\r\n|_.__/ \\___|\\___|\\___|_| |_|_|_| |_|\\__, |\r\n                                     __/ |\r\n                                    |___/\n ";
+                string header =
+                    "\n _                    _     _             \r\n| |                  | |   (_)            \r\n| |__   ___  ___  ___| |__  _ _ __   __ _ \r\n| '_ \\ / _ \\/ _ \\/ __| '_ \\| | '_ \\ / _` |\r\n| |_) |  __/  __/ (__| | | | | | | | (_| |\r\n|_.__/ \\___|\\___|\\___|_| |_|_|_| |_|\\__, |\r\n                                     __/ |\r\n                                    |___/\n ";
                 AnsiConsole.Markup($"[green]{header}[/]\n");
             }
 

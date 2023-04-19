@@ -166,9 +166,7 @@ namespace Beeching.Commands
                 {
                     if (!response.IsSuccessStatusCode)
                     {
-                        AnsiConsole.Markup(
-                            $"[red]- Axe failed: {response.StatusCode}[/]\n"
-                        );
+                        AnsiConsole.Markup($"[red]- Axe failed: {response.StatusCode}[/]\n");
                     }
                 }
             }
