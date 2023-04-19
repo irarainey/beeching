@@ -3,7 +3,7 @@ using System.ComponentModel;
 
 namespace Beeching.Commands
 {
-    public sealed class AxeSettings : CommandSettings
+    internal sealed class AxeSettings : CommandSettings
     {
         [CommandOption("-s|--subscription")]
         [Description("The subscription id to use.")]

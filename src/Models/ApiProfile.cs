@@ -2,7 +2,7 @@
 
 namespace Beeching.Models
 {
-    public class ApiProfile
+    internal sealed class ApiProfile
     {
         [JsonPropertyName("profileVersion")]
         public string ProfileVersion { get; set; }

@@ -39,16 +39,12 @@ namespace Beeching.Commands
 
             if (!string.IsNullOrEmpty(settings.Name) && !string.IsNullOrEmpty(settings.Tag))
             {
-                return ValidationResult.Error(
-                    "Only one of Name or Tag can be specified for resources to be axed."
-                );
+                return ValidationResult.Error("Only one of Name or Tag can be specified for resources to be axed.");
             }
 
             if (string.IsNullOrEmpty(settings.Name) && string.IsNullOrEmpty(settings.Tag))
             {
-                return ValidationResult.Error(
-                    "A Name or Tag must be specified for resources to be axed."
-                );
+                return ValidationResult.Error("A Name or Tag must be specified for resources to be axed.");
             }
 
             return ValidationResult.Success();
@@ -91,9 +87,7 @@ namespace Beeching.Commands
 
                     if (settings.Debug)
                     {
-                        AnsiConsole.WriteLine(
-                            $"Default subscription ID retrieved from az cli: {subscriptionId}"
-                        );
+                        AnsiConsole.WriteLine($"Default subscription ID retrieved from az cli: {subscriptionId}");
                     }
 
                     settings.Subscription = subscriptionId;
@@ -101,10 +95,7 @@ namespace Beeching.Commands
                 catch (Exception e)
                 {
                     AnsiConsole.WriteException(
-                        new ArgumentException(
-                            "Missing subscription ID. Please specify a subscription ID or login to Azure CLI.",
-                            e
-                        )
+                        new ArgumentException("Missing subscription ID. Please specify a subscription ID or login to Azure CLI.", e)
                     );
                     return -1;
                 }
@@ -182,8 +173,7 @@ namespace Beeching.Commands
             {
                 StartInfo = new ProcessStartInfo
                 {
-                    FileName =
-                        Environment.OSVersion.Platform == PlatformID.Win32NT ? "where" : "which",
+                    FileName = Environment.OSVersion.Platform == PlatformID.Win32NT ? "where" : "which",
                     Arguments = "az",
                     RedirectStandardOutput = true,
                     UseShellExecute = false,
@@ -202,12 +192,7 @@ namespace Beeching.Commands
             process.Close();
 
             return azExecutable
-                + (
-                    Environment.OSVersion.Platform == PlatformID.Win32NT
-                    && azExecutable.EndsWith(".cmd") == false
-                        ? ".cmd"
-                        : ""
-                );
+                + (Environment.OSVersion.Platform == PlatformID.Win32NT && azExecutable.EndsWith(".cmd") == false ? ".cmd" : "");
         }
     }
 }

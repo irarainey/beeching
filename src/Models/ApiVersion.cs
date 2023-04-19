@@ -2,7 +2,7 @@
 
 namespace Beeching.Models
 {
-    public class ApiVersion
+    internal sealed class ApiVersion
     {
         [JsonPropertyName("resourceType")]
         public string ResourceType { get; set; }
