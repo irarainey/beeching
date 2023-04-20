@@ -5,7 +5,6 @@ using Newtonsoft.Json;
 using Polly;
 using Spectre.Console;
 using System.Net.Http.Headers;
-using System.Net.Http.Json;
 
 namespace Beeching.Commands
 {
@@ -18,7 +17,7 @@ namespace Beeching.Commands
             _client = httpClientFactory.CreateClient("AzApi");
         }
 
-        public async Task<bool> AxeResources(AxeSettings settings)
+        public async Task<int> AxeResources(AxeSettings settings)
         {
             // Get the access token and add it to the request header for the http client
             _client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue(
@@ -26,33 +25,25 @@ namespace Beeching.Commands
                 await AuthHelper.GetAccessToken(settings.Debug)
             );
 
-            if (!settings.SupressOutput)
-            {
-                AnsiConsole.Markup($"[green]- Using subscription id {settings.Subscription}[/]\n");
-            }
-
             // Get the list of resources to axe based on the name filter
-            List<Resource> axeResources = await GetAxeResourceList(settings);
+            List<Resource> foundResources = await GetAxeResourceList(settings);
 
-            // If there are no resources to axe then drop out
-            if (axeResources.Count == 0)
+            // If no resources are found then drop out
+            if (foundResources.Count == 0)
             {
-                if (!settings.SupressOutput)
-                {
-                    AnsiConsole.Markup($"[cyan]- No resources found to axe[/]\n\n");
-                }
-                return true;
+                AnsiConsole.Markup ($"[cyan]- No resources found to axe[/]\n\n");
+                return 0;
             }
 
-            List<(Uri, string)> resourcesToAxe = new();
+            List<(Uri, string)> axeList = new();
 
             if (settings.WhatIf)
             {
-                AnsiConsole.Markup($"[green]- ** Running What-If **[/]\n");
+                AnsiConsole.Markup($"[green]- *** Running What-If ***[/]\n");
             }
 
             // Iterate through the list of resources to axe
-            foreach (var resource in axeResources)
+            foreach (var resource in foundResources)
             {
                 List<string> exclusions = settings.Exclude.Split(':').ToList();
                 if (exclusions.Contains(resource.Name))
@@ -94,33 +85,29 @@ namespace Beeching.Commands
                 // If we can't get the latest API version then skip over this resource
                 if (apiVersion == null)
                 {
-                    if (!settings.SupressOutput)
-                    {
-                        AnsiConsole.Markup($"[red]- Unable to get latest API version for {outputMessage}[/]\n");
-                    }
+                    AnsiConsole.Markup ($"[red]- Unable to get latest API version for {outputMessage}[/]\n");
                     continue;
                 }
 
                 // Build the URI for the delete request
-                resourcesToAxe.Add((new Uri($"{resource.Id}?api-version={apiVersion}", UriKind.Relative), outputMessage));
+                axeList.Add((new Uri($"{resource.Id}?api-version={apiVersion}", UriKind.Relative), outputMessage));
                 AnsiConsole.Markup($"[green]- Found: {outputMessage}[/]\n");
             }
 
             // If we are in what-if mode then drop out
             if (settings.WhatIf)
             {
-                return true;
+                return 0;
             }
 
-            if (resourcesToAxe.Count == 0)
+            // If the axe list is empty then drop out
+            if (axeList.Count == 0)
             {
-                if (!settings.SupressOutput)
-                {
-                    AnsiConsole.Markup($"[cyan]- No resources found to axe[/]\n\n");
-                }
-                return true;
+                AnsiConsole.Markup ($"[cyan]- No resources found to axe[/]\n\n");
+                return 0;
             }
 
+            // If we want to skip confirmation then be my guest
             if (!settings.SkipConfirmation)
             {
                 var confirm = AnsiConsole.Prompt(
@@ -132,18 +119,16 @@ namespace Beeching.Commands
                 if (confirm == "No")
                 {
                     AnsiConsole.Markup($"[red]- Resource axing abandoned[/]\n\n");
-                    return true;
+                    return 0;
                 }
             }
 
+            // Iterate through the list of resources to axe and make the delete requests
             bool allSuccessful = true;
-            foreach (var resource in resourcesToAxe)
+            foreach (var resource in axeList)
             {
                 // Output the details of the delete request
-                if (!settings.SupressOutput)
-                {
-                    AnsiConsole.Markup($"[green]- Axing {resource.Item2}[/]\n");
-                }
+                AnsiConsole.Markup ($"[green]- Axing {resource.Item2}[/]\n");
 
                 // Make the delete request
                 var response = await _client.DeleteAsync(resource.Item1);
@@ -151,38 +136,32 @@ namespace Beeching.Commands
                 if (settings.Debug)
                 {
                     AnsiConsole.WriteLine($"- Response status code is {response.StatusCode}");
-                    AnsiConsole.WriteLine($"Response content: {await response.Content.ReadAsStringAsync()}");
+                    AnsiConsole.WriteLine($"- Response content: {await response.Content.ReadAsStringAsync()}");
                 }
 
-                if (!settings.SupressOutput)
+                if (!response.IsSuccessStatusCode)
                 {
-                    if (!response.IsSuccessStatusCode)
-                    {
-                        AnsiConsole.Markup($"[red]- Axe failed: {response.StatusCode}[/]\n");
-                        allSuccessful = false;
-                    }
-                    else
-                    {
-                        AnsiConsole.Markup($"[green]- Resource axed successfully[/]\n");
-                    }
-                }
-            }
-
-            if (!settings.SupressOutput)
-            {
-                if (allSuccessful)
-                {
-                    AnsiConsole.Markup($"[green]- All resources axed successfully[/]\n\n");
+                    AnsiConsole.Markup ($"[red]- Axe failed: {response.StatusCode}[/]\n");
+                    allSuccessful = false;
                 }
                 else
                 {
-                    AnsiConsole.Markup(
-                        $"[red]- Some resources refused to be axed. This could be a dependency issue. Try running the same command again[/]\n\n"
-                    );
+                    AnsiConsole.Markup ($"[green]- Resource axed successfully[/]\n");
                 }
             }
 
-            return true;
+            if (allSuccessful)
+            {
+                AnsiConsole.Markup ($"[green]- All resources axed successfully[/]\n\n");
+            }
+            else
+            {
+                AnsiConsole.Markup (
+                    $"[red]- Some resources refused to be axed. This could be a dependency issue. Try running the same command again[/]\n\n"
+                );
+            }
+
+            return 0;
         }
 
         private async Task<string?> GetLatestApiVersion(AxeSettings settings, string provider, string type)
@@ -212,10 +191,7 @@ namespace Beeching.Commands
 
             if (!string.IsNullOrEmpty(settings.Name))
             {
-                if (!settings.SupressOutput)
-                {
-                    AnsiConsole.Markup($"[green]- Searching for resources where name contains '{settings.Name}'[/]\n");
-                }
+                AnsiConsole.Markup ($"[green]- Searching for resources where name contains '{settings.Name}'[/]\n");
 
                 // Get the list of resources based on the name filter
                 HttpResponseMessage resourceResponse = await _client.GetAsync(
@@ -285,10 +261,7 @@ namespace Beeching.Commands
             {
                 List<string> tag = settings.Tag.Split(':').ToList();
 
-                if (!settings.SupressOutput)
-                {
-                    AnsiConsole.Markup($"[green]- Searching for resources where tag '{tag[0]}' equals '{tag[1]}'[/]\n");
-                }
+                AnsiConsole.Markup ($"[green]- Searching for resources where tag '{tag[0]}' equals '{tag[1]}'[/]\n");
 
                 // Get the list of resources based on the name filter
                 HttpResponseMessage resourceResponse = await _client.GetAsync(

@@ -85,7 +85,6 @@ OPTIONS:
     -e, --exclude          The name of the resources to exclude from the axe
     -f, --force            Force the axe to delete the resources if locked
     -y, --yes              Skip the confirmation prompt
-    -q, --quiet            Do not show any output
     -w, --what-if          Show which resources would face the axe
     -h, --help             Prints help information
     -d, --debug            Increase logging verbosity to show all debug logs

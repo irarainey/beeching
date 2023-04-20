@@ -39,11 +39,6 @@ namespace Beeching.Commands
         [DefaultValue(false)]
         public bool SkipConfirmation { get; set; }
 
-        [CommandOption("-q|--quiet")]
-        [Description("Do not show any output.")]
-        [DefaultValue(false)]
-        public bool SupressOutput { get; set; }
-
         [CommandOption("-w|--what-if")]
         [Description("Show which resources would face the axe.")]
         [DefaultValue(false)]

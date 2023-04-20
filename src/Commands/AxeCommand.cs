@@ -1,8 +1,7 @@
 using Beeching.Commands.Interfaces;
+using Beeching.Helpers;
 using Spectre.Console;
 using Spectre.Console.Cli;
-using System.Diagnostics;
-using System.Text.Json;
 
 namespace Beeching.Commands
 {
@@ -17,24 +16,9 @@ namespace Beeching.Commands
 
         public override ValidationResult Validate(CommandContext context, AxeSettings settings)
         {
-            if (settings.Version)
-            {
-                return ValidationResult.Success();
-            }
-
             if (settings.Force)
             {
                 return ValidationResult.Error("Force is not yet implemented.");
-            }
-
-            if (settings.Debug && settings.SupressOutput)
-            {
-                return ValidationResult.Error("Debug and Quiet cannot both be specified.");
-            }
-
-            if (settings.WhatIf && settings.SupressOutput)
-            {
-                return ValidationResult.Error("What If and Quiet cannot both be specified.");
             }
 
             if (!string.IsNullOrEmpty(settings.Name) && !string.IsNullOrEmpty(settings.Tag))
@@ -52,25 +36,23 @@ namespace Beeching.Commands
 
         public override async Task<int> ExecuteAsync(CommandContext context, AxeSettings settings)
         {
-            if (settings.Version)
+            settings.Subscription = GetSubscriptionId(settings);
+
+            if (settings.Subscription == Guid.Empty)
             {
-                AnsiConsole.WriteLine($"{GetVersion()}");
-                return 0;
+                return -1;
             }
 
-            if (!settings.SupressOutput)
-            {
-                string header =
-                    "\n _                    _     _             \r\n| |                  | |   (_)            \r\n| |__   ___  ___  ___| |__  _ _ __   __ _ \r\n| '_ \\ / _ \\/ _ \\/ __| '_ \\| | '_ \\ / _` |\r\n| |_) |  __/  __/ (__| | | | | | | | (_| |\r\n|_.__/ \\___|\\___|\\___|_| |_|_|_| |_|\\__, |\r\n                                     __/ |\r\n                                    |___/\n ";
-                AnsiConsole.Markup($"[green]{header}[/]\n");
-            }
+            (string, string) userInformation = AzCliHelper.GetSignedInUser();
+            AnsiConsole.Markup($"[green]- Running as {userInformation.Item2} ({userInformation.Item1})[/]\n");
+            AnsiConsole.Markup($"[green]- Using subscription id {settings.Subscription}[/]\n");
 
-            if (settings.Debug)
-            {
-                AnsiConsole.WriteLine($"Version: {GetVersion()}");
-            }
+            return await _azureAxe.AxeResources(settings);
+        }
 
-            var subscriptionId = settings.Subscription;
+        private static Guid GetSubscriptionId(AxeSettings settings)
+        {
+            Guid subscriptionId = settings.Subscription;
 
             if (subscriptionId == Guid.Empty)
             {
@@ -83,116 +65,22 @@ namespace Beeching.Commands
                         );
                     }
 
-                    subscriptionId = Guid.Parse(GetDefaultAzureSubscriptionId());
+                    subscriptionId = Guid.Parse(AzCliHelper.GetDefaultAzureSubscriptionId());
 
                     if (settings.Debug)
                     {
                         AnsiConsole.WriteLine($"Default subscription ID retrieved from az cli: {subscriptionId}");
                     }
-
-                    settings.Subscription = subscriptionId;
                 }
-                catch (Exception e)
+                catch (Exception ex)
                 {
                     AnsiConsole.WriteException(
-                        new ArgumentException("Missing subscription ID. Please specify a subscription ID or login to Azure CLI.", e)
+                        new ArgumentException("Missing subscription ID. Please specify a subscription ID or login to Azure CLI.", ex)
                     );
-                    return -1;
                 }
             }
 
-            bool status = await _azureAxe.AxeResources(settings);
-
-            return status ? 0 : -1;
-        }
-
-        private static string GetVersion()
-        {
-            var version = typeof(AxeCommand).Assembly.GetName().Version;
-            if (version != null)
-            {
-                return $"{version.Major}.{version.Minor}.{version.Build}";
-            }
-            else
-            {
-                return "Unknown";
-            }
-        }
-
-        private static string GetDefaultAzureSubscriptionId()
-        {
-            string azCliExecutable = DetermineAzCliPath();
-
-            using var process = new Process
-            {
-                StartInfo = new ProcessStartInfo
-                {
-                    FileName = azCliExecutable,
-                    Arguments = "account show",
-                    RedirectStandardOutput = true,
-                    UseShellExecute = false,
-                    CreateNoWindow = true
-                }
-            };
-
-            process.Start();
-
-            string azOutput = process.StandardOutput.ReadToEnd();
-
-            process.WaitForExit();
-
-            int exitCode = process.ExitCode;
-            process.Close();
-
-            if (exitCode != 0)
-            {
-                string error = process.StandardError.ReadToEnd();
-                throw new Exception($"Error executing 'az account show': {error}");
-            }
-            else
-            {
-                using var jsonDocument = JsonDocument.Parse(azOutput);
-                JsonElement root = jsonDocument.RootElement;
-                if (root.TryGetProperty("id", out JsonElement idElement))
-                {
-                    string? subscriptionId = idElement.GetString();
-                    return subscriptionId != null ? subscriptionId : "";
-                }
-                else
-                {
-                    throw new Exception("Unable to find the 'id' property in the JSON output.");
-                }
-            }
-        }
-
-        private static string DetermineAzCliPath()
-        {
-            string azExecutable = "az";
-
-            using var process = new Process
-            {
-                StartInfo = new ProcessStartInfo
-                {
-                    FileName = Environment.OSVersion.Platform == PlatformID.Win32NT ? "where" : "which",
-                    Arguments = "az",
-                    RedirectStandardOutput = true,
-                    UseShellExecute = false,
-                    CreateNoWindow = true
-                }
-            };
-
-            process.Start();
-            string output = process.StandardOutput.ReadToEnd();
-            process.WaitForExit();
-            if (process.ExitCode == 0)
-            {
-                azExecutable = output.Split(Environment.NewLine)[0].Trim();
-            }
-
-            process.Close();
-
-            return azExecutable
-                + (Environment.OSVersion.Platform == PlatformID.Win32NT && azExecutable.EndsWith(".cmd") == false ? ".cmd" : "");
+            return subscriptionId;
         }
     }
 }
