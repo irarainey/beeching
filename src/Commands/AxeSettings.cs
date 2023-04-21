@@ -44,14 +44,24 @@ namespace Beeching.Commands
         [DefaultValue(false)]
         public bool WhatIf { get; set; }
 
-        [CommandOption("-d|--debug")]
-        [Description("Increase logging verbosity to show all debug logs.")]
-        [DefaultValue(false)]
+        [CommandOption ("-m|--max-retry")]
+        [Description ("Sets the maximum amount to retry attempts when axe fails.")]
+        [DefaultValue (6)]
+        public int MaxRetries { get; set; }
+
+        [CommandOption ("-p|--retry-pause")]
+        [Description ("Sets the pause in seconds for the retry attempts.")]
+        [DefaultValue (10)]
+        public int RetryPause { get; set; }
+
+        [CommandOption ("-d|--debug")]
+        [Description ("Increase logging verbosity to show all debug logs.")]
+        [DefaultValue (false)]
         public bool Debug { get; set; }
 
-        [CommandOption("-v|--version")]
-        [Description("Reports the application version.")]
-        [DefaultValue(false)]
+        [CommandOption ("-v|--version")]
+        [Description ("Reports the application version.")]
+        [DefaultValue (false)]
         public bool Version { get; set; }
     }
 }

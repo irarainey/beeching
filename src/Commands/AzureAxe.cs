@@ -5,7 +5,6 @@ using Newtonsoft.Json;
 using Polly;
 using Spectre.Console;
 using System.Net.Http.Headers;
-using System.Text.RegularExpressions;
 
 namespace Beeching.Commands
 {
@@ -118,8 +117,40 @@ namespace Beeching.Commands
                 }
             }
 
-            // Iterate through the list of resources to axe and make the delete requests
-            bool allSuccessful = true;
+            int retryCount = 1;
+            while (retryCount < (settings.MaxRetries + 1))
+            {
+                // Iterate through the list of resources to axe and make the delete requests
+                List<(Uri, string)> failedAxeList = await SwingTheAxe(settings, axeUriList);
+
+                if (failedAxeList.Count == 0)
+                {
+                    break;
+                }
+
+                AnsiConsole.Markup(
+                    $"[red]- Probably a dependency issue. Pausing for {settings.RetryPause} seconds and will retry. Attempt {retryCount} of {settings.MaxRetries}[/]\n\n"
+                );
+                await Task.Delay(settings.RetryPause * 1000);
+                axeUriList = failedAxeList;
+                retryCount++;
+            }
+
+            if (retryCount < (settings.MaxRetries + 1))
+            {
+                AnsiConsole.Markup($"[green]- All resources axed successfully[/]\n\n");
+            }
+            else
+            {
+                AnsiConsole.Markup($"[red]- Axe failed after {settings.MaxRetries} attempts. Try running the command again with --debug flag for more information[/]\n\n");
+            }
+
+            return 0;
+        }
+
+        private async Task<List<(Uri, string)>> SwingTheAxe(AxeSettings settings, List<(Uri, string)> axeUriList)
+        {
+            List<(Uri, string)> failedAxeList = new();
             foreach (var resource in axeUriList)
             {
                 // Output the details of the delete request
@@ -137,7 +168,7 @@ namespace Beeching.Commands
                 if (!response.IsSuccessStatusCode)
                 {
                     AnsiConsole.Markup($"[red]- Axe failed: {response.StatusCode}[/]\n");
-                    allSuccessful = false;
+                    failedAxeList.Add(resource);
                 }
                 else
                 {
@@ -145,18 +176,7 @@ namespace Beeching.Commands
                 }
             }
 
-            if (allSuccessful)
-            {
-                AnsiConsole.Markup($"[green]- All resources axed successfully[/]\n\n");
-            }
-            else
-            {
-                AnsiConsole.Markup(
-                    $"[red]- Some resources refused to be axed. This could be a dependency issue. Try running the same command again[/]\n\n"
-                );
-            }
-
-            return 0;
+            return failedAxeList;
         }
 
         private async Task<string?> GetLatestApiVersion(AxeSettings settings, string provider, string type)

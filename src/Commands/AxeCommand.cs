@@ -31,6 +31,16 @@ namespace Beeching.Commands
                 return ValidationResult.Error("A Name or Tag must be specified for resources to be axed.");
             }
 
+            if (settings.MaxRetries < 1 || settings.MaxRetries > 100)
+            {
+                return ValidationResult.Error ("Max retries must be set between 1 and 100.");
+            }
+
+            if (settings.RetryPause < 5 || settings.RetryPause > 60)
+            {
+                return ValidationResult.Error ("Retry pause must be set between 5 and 60 seconds.");
+            }
+
             return ValidationResult.Success();
         }
 
@@ -44,7 +54,7 @@ namespace Beeching.Commands
             }
 
             (string, string) userInformation = AzCliHelper.GetSignedInUser();
-            AnsiConsole.Markup($"[green]- Running as [white]{userInformation.Item2}[/] ({userInformation.Item1})[/]\n");
+            AnsiConsole.Markup($"[green]- Running as user [white]{userInformation.Item2}[/] // [white]{userInformation.Item1}[/][/]\n");
             AnsiConsole.Markup($"[green]- Using subscription id [white]{settings.Subscription}[/][/]\n");
 
             return await _azureAxe.AxeResources(settings);

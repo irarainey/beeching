@@ -65,6 +65,8 @@ It is also possible to use the `--what-if` parameter to see which resources woul
 
 Before any resources are deleted, you will be prompted to confirm that you want to delete the resources. You can skip this prompt by using the `--yes` parameter.
 
+A built-in retry mechanism is in place to handle transient errors. By default, the axe will retry each request 3 times at the API level. Occasionally deletion requests can fail if other dependent resources have yet to be deleted. In this instance a further retry mechanism is in place with will pause for 10 seconds between each retry attempt, and each action will be retried 6 times. These two values are configurable and can be set using the `--max-retry` and `--retry-pause` parameters.
+
 You can also use the `--help` parameter to get a list of all available options.
 
 ```bash
@@ -78,17 +80,19 @@ USAGE:
     beeching [OPTIONS]
 
 OPTIONS:
-    -s, --subscription     The subscription id to use
-    -n, --name             The name (or partial name) of the resources to axe
-    -t, --tag              The tag key and value of the resources to axe
-    -r, --resource-types   Restrict the types of the resources to axe
-    -e, --exclude          The name of the resources to exclude from the axe
-    -f, --force            Force the axe to delete the resources if locked
-    -y, --yes              Skip the confirmation prompt
-    -w, --what-if          Show which resources would face the axe
-    -h, --help             Prints help information
-    -d, --debug            Increase logging verbosity to show all debug logs
-    -v, --version          Reports the application version
+    -h, --help                Prints help information
+    -s, --subscription        The subscription id to use
+    -n, --name                The name (or partial name) of the resources to axe
+    -t, --tag                 The tag value of the resources to axe
+    -r, --resource-types      Restict the types of the resources to axe
+    -e, --exclude             The names of resources to exclude from the axe
+    -f, --force               Force the axe to delete the resources if locked
+    -y, --yes                 Skip the confirmation prompt
+    -w, --what-if             Show which resources would face the axe without actually deleting them
+    -m, --max-retry           Sets the maximum amount to retry attempts when axe fails (default = 6)
+    -p, --retry-pause         Sets the pause in seconds for the retry attempts (default = 10)
+    -d, --debug               Increase logging verbosity to show all debug logs
+    -v, --version             Reports the application version
 
 COMMANDS:
     axe    The mighty axe that culls the resources
