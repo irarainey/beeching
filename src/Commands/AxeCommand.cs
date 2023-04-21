@@ -44,8 +44,8 @@ namespace Beeching.Commands
             }
 
             (string, string) userInformation = AzCliHelper.GetSignedInUser();
-            AnsiConsole.Markup($"[green]- Running as {userInformation.Item2} ({userInformation.Item1})[/]\n");
-            AnsiConsole.Markup($"[green]- Using subscription id {settings.Subscription}[/]\n");
+            AnsiConsole.Markup($"[green]- Running as [white]{userInformation.Item2}[/] ({userInformation.Item1})[/]\n");
+            AnsiConsole.Markup($"[green]- Using subscription id [white]{settings.Subscription}[/][/]\n");
 
             return await _azureAxe.AxeResources(settings);
         }
@@ -60,8 +60,8 @@ namespace Beeching.Commands
                 {
                     if (settings.Debug)
                     {
-                        AnsiConsole.WriteLine(
-                            "No subscription ID specified. Trying to retrieve the default subscription ID from Azure CLI."
+                        AnsiConsole.Markup (
+                            "[green]- No subscription ID specified. Trying to retrieve the default subscription ID from Azure CLI[/]"
                         );
                     }
 
@@ -69,12 +69,12 @@ namespace Beeching.Commands
 
                     if (settings.Debug)
                     {
-                        AnsiConsole.WriteLine($"Default subscription ID retrieved from az cli: {subscriptionId}");
+                        AnsiConsole.Markup ($"[green]- Default subscription ID retrieved from az cli: {subscriptionId}[/]");
                     }
                 }
                 catch (Exception ex)
                 {
-                    AnsiConsole.WriteException(
+                    AnsiConsole.WriteException (
                         new ArgumentException("Missing subscription ID. Please specify a subscription ID or login to Azure CLI.", ex)
                     );
                 }

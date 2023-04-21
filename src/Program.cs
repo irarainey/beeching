@@ -44,7 +44,7 @@ if (args.Contains("--version") || args.Contains("-v"))
     return 0;
 }
 
-AnsiConsole.Markup ($"[green]{header}[/]\n");
-AnsiConsole.Markup ($"[green]- Version: {VersionHelper.GetVersion ()}[/]\n");
+AnsiConsole.Markup($"[green]{header}[/]\n");
+AnsiConsole.Markup($"[green]- Version: {VersionHelper.GetVersion()}[/]\n");
 
 return await app.RunAsync(args);
