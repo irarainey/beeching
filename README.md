@@ -6,7 +6,7 @@ Beeching is a command line tool to help you quickly and easily delete Azure reso
 
 Resources can be protected from the axe by specifying them in an exclusion list. This allows you to shield resources that you wish to keep. The list of resources can be further restricted to only cull certain types of resource by using another switch.
 
-The tool is written in C# and makes direct the calls to the Azure Management API. It is a .NET Core 6.0 / 7.0 application and can be run on Windows, Linux and Mac.
+The tool is written in C# and makes direct the calls to the Azure Management API. It is a .NET 6.0 / 7.0 application and can be run on Windows, Linux and Mac.
 
 ## Installation
 
@@ -24,22 +24,23 @@ dotnet tool update --global beeching
 
 ## Authentication
 
-To call to `beeching` and swing the axe, you need to run this from a user account with permissions to delete the specified resources. Authentication is performed using the `ChainedTokenCredential` provider which will look for the Azure CLI token first. Make sure to run `az login` (optionally with the `--tenant` parameter) to make sure you have an active session and have the correct subscription selected by using the `az account set` command.
+To call to `beeching` and swing the axe, you need to run the command from a user account with permissions to delete the specified resources. Authentication is performed using the `ChainedTokenCredential` provider which will look for the Azure CLI token first. Make sure to run `az login` (optionally with the `--tenant` parameter) to make sure you have an active session and have the correct subscription selected by using the `az account set` command.
 
 ## Usage
 
-You can invoke the tool using the `beeching` command and by specifying your parameters. The most basic usage is to specify the name of the resources you want to axe. This will use your active Azure CLI subscription and will delete all resources that match the name or part of the name. You can use the `axe` command, but this is optional as it is the default command so can be omitted.
+You can invoke the axe using the `beeching` command and by specifying your parameters. The most basic usage is to specify the name of the resources you want to axe. This will use your active Azure CLI subscription and will delete all resources that match the name or part of the name. You can use the `axe` command, but this is optional as it is the default command so can be omitted.
 
 ```bash
 beeching axe --name my-resource
 ```
- This is the same as:
+ 
+This is the same as:
 
 ```bash
 beeching --name my-resource
 ```
 
-Multiple name values can be supplied by separating them with the `:` symbol as in this example.
+Multiple name values can be supplied in a single string by separating them with the `:` symbol as in this example.
 
 ```bash
 beeching --name my-resource-001:my-resource-002
@@ -53,13 +54,13 @@ Resources can also be selected by tags. This will delete all resources that have
 beeching --tag key:value
 ```
 
-Once you have selected the resources you want to axe, you can optionally specify a list of resources to exclude from the axe using the `--exclude` option. This allows you to protect resources that you wish to keep.
+Once you have selected the resources you want to axe, you can optionally specify a list of resources to exclude from the axe using the `--exclude` option. This allows you to protect resources you wish to keep.
 
 ```bash
 beeching --name my-resource --exclude my-resource-to-keep
 ```
 
-Multiple name values can be supplied by separating them with the `:` symbol.
+Multiple name values can be supplied in a single string by separating them with the `:` symbol.
 
 ```bash
 beeching --name my-resource --exclude keep001:keep002
@@ -71,13 +72,13 @@ The list of resources can be further restricted to only cull certain types of re
 beeching --name my-resource --resource-types Microsoft.Storage/storageAccounts
 ```
 
-Again multiple options can be specified by separating them with the `:` symbol as shown in this example which will axe only storage accounts and virtual networks.
+Again multiple options can be specified by single string separating them with a `:` symbol, as shown in this example which will axe only storage accounts and virtual networks.
 
 ```bash
 beeching --name my-resource --resource-types Microsoft.Storage/storageAccounts:Microsoft.Network/virtualNetworks
 ```
 
-By default the axe will only cull individual resource types. If you want to axe an entire resource group and all the resources within it, you can use the `--resource-group` option. This will axe the resource group and all the resources in it. This option can be used with the `--name` or `--tag` options to axe a resource groups that matches the name, or parital nam, or tag key and value.
+By default the axe will only cull individual resource types. If you want to axe an entire resource group and all the resources within it, you can use the `--resource-group` option. This will axe the resource group and all resources in it. This option can be used with the `--name` or `--tag` options to axe resource group that match the name, or partial name, or tag key and value.
 
 ```bash
 beeching --name my-resource-group --resource-group
@@ -85,9 +86,9 @@ beeching --name my-resource-group --resource-group
 
 All of these options can be combined to create a very specific axe that will only delete the resources you want to delete.
 
-It is also possible to use the `--what-if` parameter to see which resources would face the axe. This will show you the list of resources that would be deleted, but will not actually delete them.
+It is also possible to use the `--what-if` parameter to see which resources would face the axe. This will show you the list of resources that would be deleted, but will not actually delete anything.
 
-Before any resources are deleted, you will be prompted to confirm that you want to delete the resources. You can skip this prompt by using the `--yes` parameter.
+Before any resources are actually deleted, you will be prompted to confirm that you really want to delete the resources. For automated deletion such as in a CI/CD pipeline you can skip this prompt by using the `--yes` parameter.
 
 A built-in retry mechanism is in place to handle transient network errors. By default, the axe will retry each request 3 times at the API level.
 
