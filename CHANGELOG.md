@@ -2,8 +2,9 @@
 
 - Amended core axe logic to only axe individual resources and not resource groups and resources in the same run
 - Added `--resource-group` option to axe just resource groups an all their contents
-- Added additional validation of resource types to ensure they are in the correct format
 - Added a count of the resources being axed to the confirmation prompt
+- Added additional validation of resource types to ensure they are in the correct format
+- Added additional validation of tag keys and values to ensure they are in the correct format
 
 ## 0.2.0
 

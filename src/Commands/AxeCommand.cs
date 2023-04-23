@@ -31,12 +31,27 @@ namespace Beeching.Commands
                 return ValidationResult.Error("A Name or Tag must be specified for resources to be axed.");
             }
 
+            if (!string.IsNullOrEmpty(settings.Tag))
+            {
+                if (!settings.Tag.Contains(':'))
+                {
+                    return ValidationResult.Error("A tag must be specified in the format 'key:value'.");
+                }
+                if (string.IsNullOrEmpty(settings.Tag.Split(':')[0]) || string.IsNullOrEmpty(settings.Tag.Split(':')[1]))
+                {
+                    return ValidationResult.Error("A tag must be specified in the format 'key:value'.");
+                }
+            }
+
             if (!string.IsNullOrEmpty(settings.ResourceTypes) && settings.ResourceGroups)
             {
                 return ValidationResult.Error("Resource groups cannot be specified with resource types.");
             }
 
-            if (!string.IsNullOrEmpty(settings.ResourceTypes) && (!settings.ResourceTypes.Contains('/') || !settings.ResourceTypes.Contains ('.')))
+            if (
+                !string.IsNullOrEmpty(settings.ResourceTypes)
+                && (!settings.ResourceTypes.Contains('/') || !settings.ResourceTypes.Contains('.'))
+            )
             {
                 return ValidationResult.Error("Resource type specified is not in a valid format.");
             }
