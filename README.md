@@ -46,13 +46,19 @@ Multiple name values can be supplied in a single string by separating them with 
 beeching --name my-resource-001:my-resource-002
 ```
 
+### Specifying a Subscription Id
+
 You can optionally provide a subscription id, but if you do not specify a subscription, it will use the actively selected subscription from the Azure CLI. Any subscription id you provide must be a valid subscription id for the user currently logged in to the Azure CLI.
+
+### Select Resources by Tag
 
 Resources can also be selected by tags. This will delete all resources that have a tag with the specified key and value. Tags must be supplied as a single string in the format `key:value`.
 
 ```bash
 beeching --tag key:value
 ```
+
+### Exclude Resources
 
 Once you have selected the resources you want to axe, you can optionally specify a list of resources to exclude from the axe using the `--exclude` option. This allows you to protect resources you wish to keep.
 
@@ -66,6 +72,8 @@ Multiple name values can be supplied in a single string by separating them with 
 beeching --name my-resource --exclude keep001:keep002
 ```
 
+### Restrict Resource Types
+
 The list of resources can be further restricted to only cull certain types of resource using the `--resource-types` option. This example will only axe resources of the type `Microsoft.Storage/storageAccounts`.
 
 ```bash
@@ -78,6 +86,8 @@ Again multiple options can be specified by single string separating them with a 
 beeching --name my-resource --resource-types Microsoft.Storage/storageAccounts:Microsoft.Network/virtualNetworks
 ```
 
+### Resource Groups
+
 By default the axe will only cull individual resource types. If you want to axe an entire resource group and all the resources within it, you can use the `--resource-group` option. This will axe the resource group and all resources in it. This option can be used with the `--name` or `--tag` options to axe resource group that match the name, or partial name, or tag key and value.
 
 ```bash
@@ -86,13 +96,21 @@ beeching --name my-resource-group --resource-group
 
 All of these options can be combined to create a very specific axe that will only delete the resources you want to delete.
 
+### What If?
+
 It is also possible to use the `--what-if` parameter to see which resources would face the axe. This will show you the list of resources that would be deleted, but will not actually delete anything.
 
+### Confirmation
+
 Before any resources are actually deleted, you will be prompted to confirm that you really want to delete the resources. For automated deletion such as in a CI/CD pipeline you can skip this prompt by using the `--yes` parameter.
+
+### Retries
 
 A built-in retry mechanism is in place to handle transient network errors. By default, the axe will retry each request 3 times at the API level.
 
 Occasionally deletion requests can fail if other dependent resources have yet to be deleted. In this instance a further retry mechanism is in place with will pause for 10 seconds between each retry attempt, and each action will be retried 6 times. These two values are configurable and can be set using the `--max-retry` and `--retry-pause` parameters.
+
+### Full List of Options
 
 You can also use the `--help` parameter to get a list of all available options.
 
