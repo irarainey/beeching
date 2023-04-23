@@ -39,7 +39,7 @@ beeching axe --name my-resource
 beeching --name my-resource
 ```
 
-Multiple name values can be supplied by separated by them with the `:` symbol.
+Multiple name values can be supplied by separating them with the `:` symbol as in this example.
 
 ```bash
 beeching --name my-resource-001:my-resource-002
@@ -47,7 +47,7 @@ beeching --name my-resource-001:my-resource-002
 
 You can optionally provide a subscription id, but if you do not specify a subscription, it will use the actively selected subscription from the Azure CLI. Any subscription id you provide must be a valid subscription id for the user currently logged in to the Azure CLI.
 
-Resources can also be selected by tags. This will delete all resources that have a tag with the specified key and value. Tags are supplied as a single string in the format `key:value`.
+Resources can also be selected by tags. This will delete all resources that have a tag with the specified key and value. Tags must be supplied as a single string in the format `key:value`.
 
 ```bash
 beeching --tag key:value
@@ -59,19 +59,19 @@ Once you have selected the resources you want to axe, you can optionally specify
 beeching --name my-resource --exclude my-resource-to-keep
 ```
 
- Multiple name values can be supplied by separated by them with the `:` symbol.
+Multiple name values can be supplied by separating them with the `:` symbol.
 
 ```bash
 beeching --name my-resource --exclude keep001:keep002
 ```
 
-The list of resources can be further restricted to only cull certain types of resource using the `--resource-types` option. This example will only delete resources of the type `Microsoft.Storage/storageAccounts`.
+The list of resources can be further restricted to only cull certain types of resource using the `--resource-types` option. This example will only axe resources of the type `Microsoft.Storage/storageAccounts`.
 
 ```bash
 beeching --name my-resource --resource-types Microsoft.Storage/storageAccounts
 ```
 
- Again multiple options can be specified by separating them with the `:` symbol as shown in this example which will axe only storage accounts and virtual networks.
+Again multiple options can be specified by separating them with the `:` symbol as shown in this example which will axe only storage accounts and virtual networks.
 
 ```bash
 beeching --name my-resource --resource-types Microsoft.Storage/storageAccounts:Microsoft.Network/virtualNetworks
