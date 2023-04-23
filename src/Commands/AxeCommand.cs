@@ -31,14 +31,24 @@ namespace Beeching.Commands
                 return ValidationResult.Error("A Name or Tag must be specified for resources to be axed.");
             }
 
+            if (!string.IsNullOrEmpty(settings.ResourceTypes) && settings.ResourceGroups)
+            {
+                return ValidationResult.Error("Resource groups cannot be specified with resource types.");
+            }
+
+            if (!string.IsNullOrEmpty(settings.ResourceTypes) && (!settings.ResourceTypes.Contains('/') || !settings.ResourceTypes.Contains ('.')))
+            {
+                return ValidationResult.Error("Resource type specified is not in a valid format.");
+            }
+
             if (settings.MaxRetries < 1 || settings.MaxRetries > 100)
             {
-                return ValidationResult.Error ("Max retries must be set between 1 and 100.");
+                return ValidationResult.Error("Max retries must be set between 1 and 100.");
             }
 
             if (settings.RetryPause < 5 || settings.RetryPause > 60)
             {
-                return ValidationResult.Error ("Retry pause must be set between 5 and 60 seconds.");
+                return ValidationResult.Error("Retry pause must be set between 5 and 60 seconds.");
             }
 
             return ValidationResult.Success();
@@ -70,7 +80,7 @@ namespace Beeching.Commands
                 {
                     if (settings.Debug)
                     {
-                        AnsiConsole.Markup (
+                        AnsiConsole.Markup(
                             "[green]- No subscription ID specified. Trying to retrieve the default subscription ID from Azure CLI[/]"
                         );
                     }
@@ -79,12 +89,12 @@ namespace Beeching.Commands
 
                     if (settings.Debug)
                     {
-                        AnsiConsole.Markup ($"[green]- Default subscription ID retrieved from az cli: {subscriptionId}[/]");
+                        AnsiConsole.Markup($"[green]- Default subscription ID retrieved from az cli: {subscriptionId}[/]");
                     }
                 }
                 catch (Exception ex)
                 {
-                    AnsiConsole.WriteException (
+                    AnsiConsole.WriteException(
                         new ArgumentException("Missing subscription ID. Please specify a subscription ID or login to Azure CLI.", ex)
                     );
                 }

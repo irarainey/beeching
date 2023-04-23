@@ -29,7 +29,12 @@ namespace Beeching.Commands
         [DefaultValue("")]
         public string Exclude { get; set; }
 
-        [CommandOption("-f|--force")]
+        [CommandOption ("-g|--resource-groups")]
+        [Description ("Axe resource groups and contents rather than individual resource types.")]
+        [DefaultValue (false)]
+        public bool ResourceGroups { get; set; }
+
+        [CommandOption ("-f|--force")]
         [Description("Force the axe to delete the resources if locked.")]
         [DefaultValue(false)]
         public bool Force { get; set; }

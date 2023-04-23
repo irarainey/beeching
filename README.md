@@ -86,6 +86,7 @@ OPTIONS:
     -t, --tag                 The tag value of the resources to axe
     -r, --resource-types      Restict the types of the resources to axe
     -e, --exclude             The names of resources to exclude from the axe
+    -g, --resource-groups     Axe resource groups and contents rather than individual resource types
     -f, --force               Force the axe to delete the resources if locked
     -y, --yes                 Skip the confirmation prompt
     -w, --what-if             Show which resources would face the axe without actually deleting them

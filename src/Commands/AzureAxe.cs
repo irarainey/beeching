@@ -54,21 +54,21 @@ namespace Beeching.Commands
                 string resourceType;
                 string outputMessage;
 
-                if (resource.Type != "Microsoft.Resources/resourceGroups")
+                if (!settings.ResourceGroups)
                 {
                     provider = sections[6];
                     resourceType = sections[7];
                     outputMessage =
                         $"[white]'{resource.Type}' '{resource.Name}'[/] [green]in resource group[/] [white]'{resourceGroup}'[/]";
+                    AnsiConsole.Markup ($"[red]- WILL AXE[/] {outputMessage}\n");
                 }
                 else
                 {
                     provider = "Microsoft.Resources";
                     resourceType = "resourceGroups";
-                    outputMessage = $"[white]'{resource.Type}' '{resource.Name}'[/]";
+                    outputMessage = $"[green]resource group[/] [white]'{resource.Name}'[/] [green]and[/] [red]ALL[/] [green]resources within it[/]";
+                    AnsiConsole.Markup ($"[red]- WILL AXE[/] {outputMessage}\n");
                 }
-
-                AnsiConsole.Markup($"[red]- WILL AXE[/] {outputMessage}\n");
 
                 if (!settings.WhatIf)
                 {
@@ -104,9 +104,15 @@ namespace Beeching.Commands
             // If we want to skip confirmation then be my guest
             if (!settings.SkipConfirmation)
             {
+                string title = $"\nAre you sure you want to axe these {axeUriList.Count} resources? [red](This cannot be undone)[/]";
+                if (axeUriList.Count == 1)
+                {
+                    title = "\nAre you sure you want to axe this resource? [red](This cannot be undone)[/]";
+                }
+
                 var confirm = AnsiConsole.Prompt(
                     new SelectionPrompt<string>()
-                        .Title("\nAre you sure you want to axe these resources? [red](This cannot be undone)[/]")
+                        .Title(title)
                         .AddChoices(new[] { "Yes", "No" })
                 );
 
@@ -202,70 +208,76 @@ namespace Beeching.Commands
         private async Task<List<Resource>> GetAxeResourceList(AxeSettings settings)
         {
             bool useNameFilter = !string.IsNullOrEmpty(settings.Name);
-            HttpResponseMessage resourceResponse;
-            HttpResponseMessage groupsResponse;
+            List<Resource> resourcesFound = new ();
 
-            if (useNameFilter)
+            if (settings.ResourceGroups)
             {
-                AnsiConsole.Markup($"[green]- Searching for resources where name contains [white]'{settings.Name}'[/][/]\n");
+                string jsonResponse;
+                HttpResponseMessage response;
+                if (useNameFilter)
+                {
+                    AnsiConsole.Markup ($"[green]- Searching for resource groups where name contains [white]'{settings.Name}'[/][/]\n");
+                    response = await _client.GetAsync ($"subscriptions/{settings.Subscription}/resourcegroups?api-version=2021-04-01");
+                    jsonResponse = await response.Content.ReadAsStringAsync ();
+                }
+                else
+                {
+                    // Split the tag into a key and value
+                    List<string> tag = settings.Tag.Split (':').ToList ();
 
-                // Get the list of resource groups
-                groupsResponse = await _client.GetAsync($"subscriptions/{settings.Subscription}/resourcegroups?api-version=2021-04-01");
+                    AnsiConsole.Markup ($"[green]- Searching for resource groups where tag [white]'{tag[0]}'[/] equals [white]'{tag[1]}'[/][/]\n");
+                    response = await _client.GetAsync (
+                        $"subscriptions/{settings.Subscription}/resourcegroups?$filter=tagName eq '{tag[0]}' and tagValue eq '{tag[1]}'&api-version=2021-04-01"
+                    );
+                    jsonResponse = await response.Content.ReadAsStringAsync ();
+                }
 
-                // Get the list of resources based on the name filter
-                resourceResponse = await _client.GetAsync(
-                    $"subscriptions/{settings.Subscription}/resources?$filter=substringof('{settings.Name}',name)&api-version=2021-04-01"
-                );
+                if (jsonResponse != null)
+                {
+                    resourcesFound.AddRange (JsonConvert.DeserializeObject<Dictionary<string, List<Resource>>> (jsonResponse)!["value"]);
+
+                    if (useNameFilter)
+                    {
+                        resourcesFound = resourcesFound.Where (x => x.Name.Contains (settings.Name)).ToList ();
+                    }
+                }
             }
             else
             {
-                // Split the tag into a key and value
-                List<string> tag = settings.Tag.Split(':').ToList();
-
-                AnsiConsole.Markup($"[green]- Searching for resources where tag [white]'{tag[0]}'[/] equals [white]'{tag[1]}'[/][/]\n");
-
-                // Get the list of resource groups based on the tag filter
-                groupsResponse = await _client.GetAsync(
-                    $"subscriptions/{settings.Subscription}/resourcegroups?$filter=tagName eq '{tag[0]}' and tagValue eq '{tag[1]}'&api-version=2021-04-01"
-                );
-
-                // Get the list of resources based on the tag filter
-                resourceResponse = await _client.GetAsync(
-                    $"subscriptions/{settings.Subscription}/resources?$filter=tagName eq '{tag[0]}' and tagValue eq '{tag[1]}'&api-version=2021-04-01"
-                );
-            }
-
-            // Read and iterate through the list of resources and groups
-            string groupJson = await groupsResponse.Content.ReadAsStringAsync();
-            string resourceJson = await resourceResponse.Content.ReadAsStringAsync();
-
-            // Create a list of resources found to axed
-            List<Resource> resourcesFound = new();
-
-            // If we have a response for groups then add them to the list
-            if (groupJson != null)
-            {
-                resourcesFound.AddRange(JsonConvert.DeserializeObject<Dictionary<string, List<Resource>>>(groupJson)!["value"]);
-
-                // If we are using a name filter then filter the list to only groups the name filter matches
+                string jsonResponse;
+                HttpResponseMessage response;
                 if (useNameFilter)
                 {
-                    resourcesFound = resourcesFound.Where(x => x.Name.Contains(settings.Name)).ToList();
+                    AnsiConsole.Markup ($"[green]- Searching for resources where name contains [white]'{settings.Name}'[/][/]\n");
+                    response = await _client.GetAsync (
+                        $"subscriptions/{settings.Subscription}/resources?$filter=substringof('{settings.Name}',name)&api-version=2021-04-01"
+                    );
+                    jsonResponse = await response.Content.ReadAsStringAsync ();
                 }
-            }
+                else
+                {
+                    // Split the tag into a key and value
+                    List<string> tag = settings.Tag.Split (':').ToList ();
 
-            // If we have a response for resources then add them to the list
-            if (resourceJson != null)
-            {
-                resourcesFound.AddRange(JsonConvert.DeserializeObject<Dictionary<string, List<Resource>>>(resourceJson)!["value"]);
-            }
+                    AnsiConsole.Markup ($"[green]- Searching for resources where tag [white]'{tag[0]}'[/] equals [white]'{tag[1]}'[/][/]\n");
+                    response = await _client.GetAsync (
+                        $"subscriptions/{settings.Subscription}/resources?$filter=tagName eq '{tag[0]}' and tagValue eq '{tag[1]}'&api-version=2021-04-01"
+                    );
+                    jsonResponse = await response.Content.ReadAsStringAsync ();
+                }
 
-            // Do we need to filter the resource types?
-            if (!string.IsNullOrEmpty(settings.ResourceTypes))
-            {
-                List<string> allowedTypes = settings.ResourceTypes.Split(':').ToList();
-                AnsiConsole.Markup($"[green]- Restricting resource types to [white]'{settings.ResourceTypes}'[/] only[/]\n");
-                resourcesFound = resourcesFound.Where(r => allowedTypes.Contains(r.Type)).ToList();
+                if (jsonResponse != null)
+                {
+                    resourcesFound.AddRange (JsonConvert.DeserializeObject<Dictionary<string, List<Resource>>> (jsonResponse)!["value"]);
+                }
+
+                // Do we need to filter the resource types?
+                if (!string.IsNullOrEmpty (settings.ResourceTypes))
+                {
+                    List<string> allowedTypes = settings.ResourceTypes.Split (':').ToList ();
+                    AnsiConsole.Markup ($"[green]- Restricting resource types to [white]'{settings.ResourceTypes}'[/] only[/]\n");
+                    resourcesFound = resourcesFound.Where (r => allowedTypes.Contains (r.Type)).ToList ();
+                }
             }
 
             // Do we need to filter exclusions?
