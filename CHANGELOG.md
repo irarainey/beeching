@@ -3,6 +3,7 @@
 - Amended core axe logic to only axe individual resources and not resource groups and resources in the same run
 - Added the ability to specify multiple resource names to axe
 - Added `--resource-group` option to axe just resource groups an all their contents
+- Added a notification when a resource cannot be axed due to being locked
 - Added a count of the resources being axed to the confirmation prompt
 - Added additional validation of resource types to ensure they are in the correct format
 - Added additional validation of tag keys and values to ensure they are in the correct format

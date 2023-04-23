@@ -121,12 +121,13 @@ namespace Beeching.Commands
             }
 
             int retryCount = 1;
+            AxeStatus axeStatus = new();
             while (retryCount < (settings.MaxRetries + 1))
             {
                 // Iterate through the list of resources to axe and make the delete requests
-                List<(Uri, string)> failedAxeList = await SwingTheAxe(settings, axeUriList);
+                axeStatus = await SwingTheAxe(settings, axeUriList);
 
-                if (failedAxeList.Count == 0)
+                if (axeStatus.AxeList.Count == 0)
                 {
                     break;
                 }
@@ -135,13 +136,17 @@ namespace Beeching.Commands
                     $"[red]- Probably a dependency issue. Pausing for {settings.RetryPause} seconds and will retry. Attempt {retryCount} of {settings.MaxRetries}[/]\n\n"
                 );
                 await Task.Delay(settings.RetryPause * 1000);
-                axeUriList = failedAxeList;
+                axeUriList = axeStatus.AxeList;
                 retryCount++;
             }
 
-            if (retryCount < (settings.MaxRetries + 1))
+            if (retryCount < (settings.MaxRetries + 1) && axeStatus.Status == true)
             {
                 AnsiConsole.Markup($"[green]- All resources axed successfully[/]\n\n");
+            }
+            else if (retryCount < (settings.MaxRetries + 1) && axeStatus.Status == false)
+            {
+                AnsiConsole.Markup ($"[green]- Axe failed on some locked resources[/]\n\n");
             }
             else
             {
@@ -153,9 +158,9 @@ namespace Beeching.Commands
             return 0;
         }
 
-        private async Task<List<(Uri, string)>> SwingTheAxe(AxeSettings settings, List<(Uri, string)> axeUriList)
+        private async Task<AxeStatus> SwingTheAxe(AxeSettings settings, List<(Uri, string)> axeUriList)
         {
-            List<(Uri, string)> failedAxeList = new();
+            AxeStatus axeStatus = new();
             foreach (var resource in axeUriList)
             {
                 // Output the details of the delete request
@@ -172,8 +177,19 @@ namespace Beeching.Commands
 
                 if (!response.IsSuccessStatusCode)
                 {
-                    AnsiConsole.Markup($"[red]- Axe failed: {response.StatusCode}[/]\n");
-                    failedAxeList.Add(resource);
+                    string responseContent = await response.Content.ReadAsStringAsync();
+                    if (responseContent.Contains("Please remove the lock and try again"))
+                    {
+                        AnsiConsole.Markup($"[red]- Axe failed because the resource is locked. Remove the lock and try again[/]\n");
+                        axeStatus.Status = false;
+                        continue;
+                    }
+                    else
+                    {
+                        AnsiConsole.Markup($"[red]- Axe failed: {response.StatusCode}[/]\n");
+                        axeStatus.AxeList.Add(resource);
+                        axeStatus.Status = false;
+                    }
                 }
                 else
                 {
@@ -181,7 +197,7 @@ namespace Beeching.Commands
                 }
             }
 
-            return failedAxeList;
+            return axeStatus;
         }
 
         private async Task<string?> GetLatestApiVersion(AxeSettings settings, string provider, string type)
@@ -263,29 +279,31 @@ namespace Beeching.Commands
             {
                 if (useNameFilter)
                 {
-                    List<string> names = new ();
+                    List<string> names = new();
 
-                    if (settings.Name.Contains (':'))
+                    if (settings.Name.Contains(':'))
                     {
-                        names = settings.Name.Split (':').ToList ();
+                        names = settings.Name.Split(':').ToList();
                     }
                     else
                     {
-                        names.Add (settings.Name);
+                        names.Add(settings.Name);
                     }
 
                     foreach (string name in names)
                     {
-                        AnsiConsole.Markup ($"[green]- Searching for resources where name contains [white]'{name}'[/][/]\n");
-                        HttpResponseMessage response = await _client.GetAsync (
-                                                       $"subscriptions/{settings.Subscription}/resources?$filter=substringof('{name}',name)&api-version=2021-04-01"
-                                                                              );
-                        string jsonResponse = await response.Content.ReadAsStringAsync ();
+                        AnsiConsole.Markup($"[green]- Searching for resources where name contains [white]'{name}'[/][/]\n");
+                        HttpResponseMessage response = await _client.GetAsync(
+                            $"subscriptions/{settings.Subscription}/resources?$filter=substringof('{name}',name)&api-version=2021-04-01"
+                        );
+                        string jsonResponse = await response.Content.ReadAsStringAsync();
                         if (jsonResponse != null)
                         {
-                            resourcesFound.AddRange (JsonConvert.DeserializeObject<Dictionary<string, List<Resource>>> (jsonResponse)!["value"]);
+                            resourcesFound.AddRange(
+                                JsonConvert.DeserializeObject<Dictionary<string, List<Resource>>>(jsonResponse)!["value"]
+                            );
                         }
-                    }   
+                    }
                 }
                 else
                 {
@@ -300,7 +318,7 @@ namespace Beeching.Commands
 
                     if (jsonResponse != null)
                     {
-                        resourcesFound.AddRange (JsonConvert.DeserializeObject<Dictionary<string, List<Resource>>> (jsonResponse)!["value"]);
+                        resourcesFound.AddRange(JsonConvert.DeserializeObject<Dictionary<string, List<Resource>>>(jsonResponse)!["value"]);
                     }
                 }
 

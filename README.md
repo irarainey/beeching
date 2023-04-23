@@ -35,8 +35,14 @@ beeching axe --name my-resource
 ```
  This is the same as:
 
- ```bash
+```bash
 beeching --name my-resource
+```
+
+Multiple name values can be supplied by separated by them with the `:` symbol.
+
+```bash
+beeching --name my-resource-001:my-resource-002
 ```
 
 You can optionally provide a subscription id, but if you do not specify a subscription, it will use the actively selected subscription from the Azure CLI. Any subscription id you provide must be a valid subscription id for the user currently logged in to the Azure CLI.
@@ -47,16 +53,34 @@ Resources can also be selected by tags. This will delete all resources that have
 beeching --tag key:value
 ```
 
-Once you have selected the resources you want to axe, you can optionally specify a list of resources to exclude from the axe. This allows you to protect resources that you wish to keep. The list of resources can be further restricted to only cull certain types of resource.
+Once you have selected the resources you want to axe, you can optionally specify a list of resources to exclude from the axe using the `--exclude` option. This allows you to protect resources that you wish to keep.
 
 ```bash
-beeching --name my-resource --exclude my-resource-to-keep --resource-types Microsoft.Storage/storageAccounts
+beeching --name my-resource --exclude my-resource-to-keep
 ```
 
- Both of these options can be specified with multiple values separated by the `:` symbol.
+ Multiple name values can be supplied by separated by them with the `:` symbol.
 
 ```bash
-beeching --name my-resource --exclude keep001:keep002 --resource-types Microsoft.Storage/storageAccounts:Microsoft.Network/virtualNetworks
+beeching --name my-resource --exclude keep001:keep002
+```
+
+The list of resources can be further restricted to only cull certain types of resource using the `--resource-types` option. This example will only delete resources of the type `Microsoft.Storage/storageAccounts`.
+
+```bash
+beeching --name my-resource --resource-types Microsoft.Storage/storageAccounts
+```
+
+ Again multiple options can be specified by separating them with the `:` symbol as shown in this example which will axe only storage accounts and virtual networks.
+
+```bash
+beeching --name my-resource --resource-types Microsoft.Storage/storageAccounts:Microsoft.Network/virtualNetworks
+```
+
+By default the axe will only cull individual resource types. If you want to axe an entire resource group and all the resources within it, you can use the `--resource-group` option. This will axe the resource group and all the resources in it. This option can be used with the `--name` or `--tag` options to axe a resource groups that matches the name, or parital nam, or tag key and value.
+
+```bash
+beeching --name my-resource-group --resource-group
 ```
 
 All of these options can be combined to create a very specific axe that will only delete the resources you want to delete.
@@ -65,7 +89,9 @@ It is also possible to use the `--what-if` parameter to see which resources woul
 
 Before any resources are deleted, you will be prompted to confirm that you want to delete the resources. You can skip this prompt by using the `--yes` parameter.
 
-A built-in retry mechanism is in place to handle transient errors. By default, the axe will retry each request 3 times at the API level. Occasionally deletion requests can fail if other dependent resources have yet to be deleted. In this instance a further retry mechanism is in place with will pause for 10 seconds between each retry attempt, and each action will be retried 6 times. These two values are configurable and can be set using the `--max-retry` and `--retry-pause` parameters.
+A built-in retry mechanism is in place to handle transient network errors. By default, the axe will retry each request 3 times at the API level.
+
+Occasionally deletion requests can fail if other dependent resources have yet to be deleted. In this instance a further retry mechanism is in place with will pause for 10 seconds between each retry attempt, and each action will be retried 6 times. These two values are configurable and can be set using the `--max-retry` and `--retry-pause` parameters.
 
 You can also use the `--help` parameter to get a list of all available options.
 
@@ -103,6 +129,6 @@ COMMANDS:
 
 ## Disclaimer
 
-**Warning:** This tool does not muck about. It really deletes your resources and there is no way to recover them. Make sure you have a backup of your resources before you use this tool. No responsibility is taken for any damage caused by this tool.
+**Warning:** This tool does not muck about. It really deletes your resources and resource groups and there is no way to recover them. Make sure you have a backup of your resources before you use this tool. No responsibility is taken for any damage caused by this tool.
 
 Several safety measures are in place to prevent accidental deletion of resources, such as a confirmation prompt, a what-if mode, and exclusion options, but it is still possible to delete resources you did not intend to delete. Unlike the real Beeching Axe there is no option for a heritage railway here. Use at your own risk.
