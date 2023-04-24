@@ -15,5 +15,7 @@ namespace Beeching.Models
 
         [JsonPropertyName ("name")]
         public string Name { get; set; }
+
+        public string Scope { get; set; }
     }
 }

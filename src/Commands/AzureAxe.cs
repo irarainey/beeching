@@ -43,8 +43,8 @@ namespace Beeching.Commands
             {
                 foreach (var resource in resourcesToAxe)
                 {
-                    string locked = resource.IsLocked == true ? "LOCKED" : "";
-                    AnsiConsole.Markup($"[red]- WILL AXE {locked}[/] [white]{resource.OutputMessage}[/]\n");
+                    string locked = resource.IsLocked == true ? "LOCKED " : "";
+                    AnsiConsole.Markup($"[red]- WILL AXE {locked}[/][green]resource [/][white]{resource.OutputMessage}[/]\n");
                 }
             }
 
@@ -122,11 +122,23 @@ namespace Beeching.Commands
             {
                 if (resource.IsLocked)
                 {
-                    AnsiConsole.Markup($"[green]- Removing lock for [white]'{resource.OutputMessage}'[/][/]\n");
+                    foreach (var resourceLock in resource.ResourceLocks)
+                    {
+                        AnsiConsole.Markup(
+                            $"[green]- Removing {resourceLock.Scope} lock [white]{resourceLock.Name}[/] for [white]{resource.OutputMessage}[/][/]\n"
+                        );
+                        var lockResponse = await _client.DeleteAsync(
+                            new Uri($"{resourceLock.Id}?api-version=2016-09-01", UriKind.Relative)
+                        );
+                        if (!lockResponse.IsSuccessStatusCode)
+                        {
+                            AnsiConsole.Markup($"[red]- Failed to remove lock for {resource.OutputMessage}[/]\n");
+                        }
+                    }
                 }
 
                 // Output the details of the delete request
-                AnsiConsole.Markup($"[green]- AXING [white]'{resource.OutputMessage}'[/][/]\n");
+                AnsiConsole.Markup($"[green]- AXING [white]{resource.OutputMessage}[/][/]\n");
 
                 // Make the delete request
                 var response = await _client.DeleteAsync(new Uri($"{resource.Id}?api-version={resource.ApiVersion}", UriKind.Relative));
@@ -204,7 +216,7 @@ namespace Beeching.Commands
 
                     foreach (string name in names)
                     {
-                        AnsiConsole.Markup($"[green]- Searching for resource groups where name contains [white]'{name}'[/][/]\n");
+                        AnsiConsole.Markup($"[green]- Searching for resource groups where name contains [white]{name}[/][/]\n");
                         HttpResponseMessage response = await _client.GetAsync(
                             $"subscriptions/{settings.Subscription}/resourcegroups?api-version=2021-04-01"
                         );
@@ -223,7 +235,7 @@ namespace Beeching.Commands
                     List<string> tag = settings.Tag.Split(':').ToList();
 
                     AnsiConsole.Markup(
-                        $"[green]- Searching for resource groups where tag [white]'{tag[0]}'[/] equals [white]'{tag[1]}'[/][/]\n"
+                        $"[green]- Searching for resource groups where tag [white]{tag[0]}[/] equals [white]{tag[1]}[/][/]\n"
                     );
                     HttpResponseMessage response = await _client.GetAsync(
                         $"subscriptions/{settings.Subscription}/resourcegroups?$filter=tagName eq '{tag[0]}' and tagValue eq '{tag[1]}'&api-version=2021-04-01"
@@ -254,7 +266,7 @@ namespace Beeching.Commands
 
                     foreach (string name in names)
                     {
-                        AnsiConsole.Markup($"[green]- Searching for resources where name contains [white]'{name}'[/][/]\n");
+                        AnsiConsole.Markup($"[green]- Searching for resources where name contains [white]{name}[/][/]\n");
                         HttpResponseMessage response = await _client.GetAsync(
                             $"subscriptions/{settings.Subscription}/resources?$filter=substringof('{name}',name)&api-version=2021-04-01"
                         );
@@ -278,7 +290,7 @@ namespace Beeching.Commands
                     // Split the tag into a key and value
                     List<string> tag = settings.Tag.Split(':').ToList();
 
-                    AnsiConsole.Markup($"[green]- Searching for resources where tag [white]'{tag[0]}'[/] equals [white]'{tag[1]}'[/][/]\n");
+                    AnsiConsole.Markup($"[green]- Searching for resources where tag [white]{tag[0]}[/] equals [white]{tag[1]}[/][/]\n");
                     HttpResponseMessage response = await _client.GetAsync(
                         $"subscriptions/{settings.Subscription}/resources?$filter=tagName eq '{tag[0]}' and tagValue eq '{tag[1]}'&api-version=2021-04-01"
                     );
@@ -286,14 +298,14 @@ namespace Beeching.Commands
 
                     if (jsonResponse != null)
                     {
-                        List<Resource> resources = JsonConvert.DeserializeObject<Dictionary<string, List<Resource>>> (jsonResponse)![
+                        List<Resource> resources = JsonConvert.DeserializeObject<Dictionary<string, List<Resource>>>(jsonResponse)![
                             "value"
                         ];
                         foreach (var resource in resources)
                         {
-                            string[] sections = resource.Id.Split ('/');
+                            string[] sections = resource.Id.Split('/');
                             resource.ResourceGroup = $"/subscriptions/{settings.Subscription}/resourceGroups/{sections[4]}";
-                            resourcesFound.Add (resource);
+                            resourcesFound.Add(resource);
                         }
                     }
                 }
@@ -305,7 +317,7 @@ namespace Beeching.Commands
                     AnsiConsole.Markup($"[green]- Restricting resource types to:[/]\n");
                     foreach (string type in allowedTypes)
                     {
-                        AnsiConsole.Markup($"\t- [white]'{type}'[/]\n");
+                        AnsiConsole.Markup($"\t- [white]{type}[/]\n");
                     }
                     resourcesFound = resourcesFound.Where(r => allowedTypes.Contains(r.Type)).ToList();
                 }
@@ -318,7 +330,7 @@ namespace Beeching.Commands
                 List<Resource> filteredResources = resourcesFound.Where(r => !exclusions.Contains(r.Name)).ToList();
                 foreach (var resource in resourcesFound.Except(filteredResources))
                 {
-                    AnsiConsole.Markup($"[green]- Excluding [white]'{resource.Name}'[/][/]\n");
+                    AnsiConsole.Markup($"[green]- Excluding [white]{resource.Name}[/][/]\n");
                 }
                 resourcesFound = filteredResources;
             }
@@ -336,14 +348,14 @@ namespace Beeching.Commands
                     provider = sections[6];
                     resourceType = sections[7];
                     resource.OutputMessage =
-                        $"[white]'{resource.Type}' '{resource.Name}'[/] [green]in resource group[/] [white]'{resourceGroup}'[/]";
+                        $"[white]{resource.Type} {resource.Name}[/] [green]in resource group[/] [white]{resourceGroup}[/]";
                 }
                 else
                 {
                     provider = "Microsoft.Resources";
                     resourceType = "resourceGroups";
                     resource.OutputMessage =
-                        $"[green]resource group[/] [white]'{resource.Name}'[/] [green]and[/] [red]ALL[/] [green]resources within it[/]";
+                        $"[green]group[/] [white]{resource.Name}[/] [green]and[/] [red]ALL[/] [green]resources within it[/]";
                 }
 
                 string? apiVersion = await GetLatestApiVersion(settings, provider, resourceType);
@@ -392,20 +404,43 @@ namespace Beeching.Commands
                     {
                         foreach (var resourceLock in resourceLocks)
                         {
-                            if (
-                                resourceLock.Id == $"{resource.Id}/providers/{resourceLock.Type}/{resourceLock.Name}"
-                                || resourceLock.Id == $"{resource.ResourceGroup}/providers/{resourceLock.Type}/{resourceLock.Name}"
-                                || resourceLock.Id == $"/subscriptions/{settings.Subscription}/providers/{resourceLock.Type}/{resourceLock.Name}"
+                            if (resourceLock.Id.ToLower() == $"{resource.Id}/providers/{resourceLock.Type}/{resourceLock.Name}".ToLower())
+                            {
+                                resourceLock.Scope = "resource";
+                                resource.ResourceLocks.Add(resourceLock);
+                                resource.IsLocked = true;
+                            }
+                            else if (
+                                resourceLock.Id.ToLower()
+                                == $"{resource.ResourceGroup}/providers/{resourceLock.Type}/{resourceLock.Name}".ToLower()
                             )
                             {
+                                resourceLock.Scope = "resource group";
+                                resource.ResourceLocks.Add(resourceLock);
+                                resource.IsLocked = true;
+                            }
+                            else if (
+                                resourceLock.Id.ToLower()
+                                == $"/subscriptions/{settings.Subscription}/providers/{resourceLock.Type}/{resourceLock.Name}".ToLower()
+                            )
+                            {
+                                resourceLock.Scope = "subscription";
                                 resource.ResourceLocks.Add(resourceLock);
                                 resource.IsLocked = true;
                             }
                         }
                         if (settings.Force == false && resource.IsLocked == true)
                         {
-                            AnsiConsole.Markup (
-                                $"[green]- Found resource {resource.OutputMessage} but it is locked and cannot be deleted[/]\n"
+                            if (settings.ResourceGroups)
+                            {
+                                resource.OutputMessage = resource.OutputMessage.Replace(
+                                    " [green]and[/] [red]ALL[/] [green]resources within it[/]",
+                                    ""
+                                );
+                            }
+
+                            AnsiConsole.Markup(
+                                $"[green]- Found resource {resource.OutputMessage} but it's locked and cannot be deleted[/]\n"
                             );
                         }
                     }
