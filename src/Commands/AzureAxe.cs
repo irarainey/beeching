@@ -5,7 +5,6 @@ using Newtonsoft.Json;
 using Polly;
 using Spectre.Console;
 using System.Net.Http.Headers;
-using System.Resources;
 using System.Text;
 
 namespace Beeching.Commands
@@ -46,7 +45,7 @@ namespace Beeching.Commands
                 foreach (var resource in resourcesToAxe)
                 {
                     string locked = resource.IsLocked == true ? "LOCKED " : "";
-                    string group = settings.ResourceGroups == true? " and [red]ALL[/] resources within it" : "";
+                    string group = settings.ResourceGroups == true ? " and [red]ALL[/] resources within it" : "";
                     AnsiConsole.Markup($"[green]- [red]WILL AXE {locked}[/]resource [white]{resource.OutputMessage}[/]{group}[/]\n");
                 }
             }
@@ -192,7 +191,7 @@ namespace Beeching.Commands
                             )
                             {
                                 AnsiConsole.Markup(
-                                    $"[green]- Adding {resourceLock.Scope} lock [white]{resourceLock.Name}[/] for [white]{resource.OutputMessage}[/][/]\n"
+                                    $"[green]- Reapplying {resourceLock.Scope} lock [white]{resourceLock.Name}[/] for [white]{resource.OutputMessage}[/][/]\n"
                                 );
 
                                 var createLockResponse = await _client.PutAsync(
@@ -202,7 +201,7 @@ namespace Beeching.Commands
 
                                 if (!createLockResponse.IsSuccessStatusCode)
                                 {
-                                    AnsiConsole.Markup($"[red]- Failed to re-add lock for {resource.OutputMessage}[/]\n");
+                                    AnsiConsole.Markup($"[red]- Failed to reapply lock for {resource.OutputMessage}[/]\n");
                                     skipAxe = true;
                                 }
                             }
@@ -394,8 +393,7 @@ namespace Beeching.Commands
                 {
                     provider = "Microsoft.Resources";
                     resourceType = "resourceGroups";
-                    resource.OutputMessage =
-                        $"[green]group[/] [white]{resource.Name}[/]";
+                    resource.OutputMessage = $"[green]group[/] [white]{resource.Name}[/]";
                 }
 
                 string? apiVersion = await GetLatestApiVersion(settings, provider, resourceType);
@@ -411,13 +409,13 @@ namespace Beeching.Commands
             // Remove any resources that we couldn't get an API version for
             resourcesFound = resourcesFound.Except(resourcesFound.Where(r => string.IsNullOrEmpty(r.ApiVersion)).ToList()).ToList();
 
-            await CheckForLocks(settings, resourcesFound);
+            await DetermineLocks(settings, resourcesFound);
 
             // Return whatever is left
             return resourcesFound;
         }
 
-        private async Task CheckForLocks(AxeSettings settings, List<Resource> resources)
+        private async Task DetermineLocks(AxeSettings settings, List<Resource> resources)
         {
             AnsiConsole.Markup($"[green]- Checking found resources for locks[/]\n");
 
@@ -442,27 +440,29 @@ namespace Beeching.Commands
 
                     foreach (var resource in resources)
                     {
+                        string[] sections = resource.Id.Split('/');
                         foreach (var resourceLock in resourceLocks)
                         {
-                            if (resourceLock.Id.ToLower() == $"{resource.Id}/providers/{resourceLock.Type}/{resourceLock.Name}".ToLower())
+                            string lockId = resourceLock.Id.ToLower();
+                            string resourceGroupId =
+                                $"/subscriptions/{settings.Subscription}/resourceGroups/{sections[4]}/providers/{resourceLock.Type}/{resourceLock.Name}".ToLower();
+                            string subscriptionId =
+                                $"/subscriptions/{settings.Subscription}/providers/{resourceLock.Type}/{resourceLock.Name}".ToLower();
+
+                            if (lockId.StartsWith(resource.Id.ToLower()))
                             {
-                                resourceLock.Scope = "resource";
+                                resourceLock.Scope =
+                                    resource.Type.ToLower() == "microsoft.resources/resourcegroups" ? "resource group" : "resource";
                                 resource.ResourceLocks.Add(resourceLock);
                                 resource.IsLocked = true;
                             }
-                            else if (
-                                resourceLock.Id.ToLower()
-                                == $"{resource.ResourceGroup}/providers/{resourceLock.Type}/{resourceLock.Name}".ToLower()
-                            )
+                            else if (lockId == resourceGroupId)
                             {
                                 resourceLock.Scope = "resource group";
                                 resource.ResourceLocks.Add(resourceLock);
                                 resource.IsLocked = true;
                             }
-                            else if (
-                                resourceLock.Id.ToLower()
-                                == $"/subscriptions/{settings.Subscription}/providers/{resourceLock.Type}/{resourceLock.Name}".ToLower()
-                            )
+                            else if (lockId == subscriptionId)
                             {
                                 resourceLock.Scope = "subscription";
                                 resource.ResourceLocks.Add(resourceLock);

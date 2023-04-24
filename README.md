@@ -24,7 +24,7 @@ dotnet tool update --global beeching
 
 ## Authentication
 
-To call to `beeching` and swing the axe, you need to run the command from a user account with permissions to delete the specified resources. Authentication is performed using the `ChainedTokenCredential` provider which will look for the Azure CLI token first. Make sure to run `az login` (optionally with the `--tenant` parameter) to make sure you have an active session and have the correct subscription selected by using the `az account set` command.
+To call to `beeching` and swing the axe, you need to run the command from a user account with permissions to delete the specified resources, and resource locks if using the `--force` option. Authentication is performed using the `ChainedTokenCredential` provider which will look for the Azure CLI token first. Make sure to run `az login` (optionally with the `--tenant` parameter) to make sure you have an active session and have the correct subscription selected by using the `az account set` command.
 
 ## Usage
 
@@ -46,11 +46,11 @@ Multiple name values can be supplied in a single string by separating them with 
 beeching --name my-resource-001:my-resource-002
 ```
 
-### Specifying a Subscription Id
+## Specifying a Subscription Id
 
 You can optionally provide a subscription id, but if you do not specify a subscription, it will use the actively selected subscription from the Azure CLI. Any subscription id you provide must be a valid subscription id for the user currently logged in to the Azure CLI.
 
-### Select Resources by Tag
+## Select Resources by Tag
 
 Resources can also be selected by tags. This will delete all resources that have a tag with the specified key and value. Tags must be supplied as a single string in the format `key:value`.
 
@@ -58,7 +58,7 @@ Resources can also be selected by tags. This will delete all resources that have
 beeching --tag key:value
 ```
 
-### Exclude Resources
+## Exclude Resources
 
 Once you have selected the resources you want to axe, you can optionally specify a list of resources to exclude from the axe using the `--exclude` option. This allows you to protect resources you wish to keep.
 
@@ -72,7 +72,7 @@ Multiple name values can be supplied in a single string by separating them with 
 beeching --name my-resource --exclude keep001:keep002
 ```
 
-### Restrict Resource Types
+## Restrict Resource Types
 
 The list of resources can be further restricted to only cull certain types of resource using the `--resource-types` option. This example will only axe resources of the type `Microsoft.Storage/storageAccounts`.
 
@@ -86,7 +86,7 @@ Again multiple options can be specified by single string separating them with a 
 beeching --name my-resource --resource-types Microsoft.Storage/storageAccounts:Microsoft.Network/virtualNetworks
 ```
 
-### Resource Groups
+## Resource Groups
 
 By default the axe will only cull individual resource types. If you want to axe an entire resource group and all the resources within it, you can use the `--resource-group` option. This will axe the resource group and all resources in it. This option can be used with the `--name` or `--tag` options to axe resource group that match the name, or partial name, or tag key and value.
 
@@ -96,21 +96,45 @@ beeching --name my-resource-group --resource-group
 
 All of these options can be combined to create a very specific axe that will only delete the resources you want to delete.
 
-### What If?
+## Resource Locks
+
+Resource locks can be applied to Azure resources at the resource, resource group or subscription level. If a resource is locked, it cannot be axed. Beeching will check for resource locks and will not attempt to axe any resources that are locked. If you want to axe a resource that is locked, you will need to remove all applicable locks first, or use the `--force` option to override the locks.
+
+```bash
+beeching --name my-resource --force
+```
+
+Using the `--force` option will attempt to remove any resource locks before axing the resource. This can be useful if you have a resource that is locked, but you know that it is safe to delete. This option should be used with caution as it can lead to accidental deletion of resources.
+
+Following the axing of a locked resource, any relevant locks, such as subscription locks or resource group locks will be reapplied. This is to prevent accidental deletion of resources that are locked for a reason.
+
+## What If?
 
 It is also possible to use the `--what-if` parameter to see which resources would face the axe. This will show you the list of resources that would be deleted, but will not actually delete anything.
 
-### Confirmation
+```bash
+beeching --name my-resource --what-if
+```
+
+## Confirmation
 
 Before any resources are actually deleted, you will be prompted to confirm that you really want to delete the resources. For automated deletion such as in a CI/CD pipeline you can skip this prompt by using the `--yes` parameter.
 
-### Retries
+```bash
+beeching --name my-resource --yes
+```
+
+## Retries
 
 A built-in retry mechanism is in place to handle transient network errors. By default, the axe will retry each request 3 times at the API level.
 
 Occasionally deletion requests can fail if other dependent resources have yet to be deleted. In this instance a further retry mechanism is in place with will pause for 10 seconds between each retry attempt, and each action will be retried 6 times. These two values are configurable and can be set using the `--max-retry` and `--retry-pause` parameters.
 
-### Full List of Options
+```bash
+beeching --name my-resource --max-retry 10 --retry-pause 30
+```
+
+## Full List of Options
 
 You can also use the `--help` parameter to get a list of all available options.
 
