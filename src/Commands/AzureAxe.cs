@@ -138,7 +138,7 @@ namespace Beeching.Commands
                 }
 
                 // Output the details of the delete request
-                AnsiConsole.Markup($"[green]- AXING [white]{resource.OutputMessage}[/][/]\n");
+                AnsiConsole.Markup($"[green]- [red]AXING[/] [white]{resource.OutputMessage}[/][/]\n");
 
                 // Make the delete request
                 var response = await _client.DeleteAsync(new Uri($"{resource.Id}?api-version={resource.ApiVersion}", UriKind.Relative));
