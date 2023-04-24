@@ -120,6 +120,11 @@ namespace Beeching.Commands
             AxeStatus axeStatus = new();
             foreach (var resource in axeUriList)
             {
+                if (resource.IsLocked)
+                {
+                    AnsiConsole.Markup($"[green]- Removing lock for [white]'{resource.OutputMessage}'[/][/]\n");
+                }
+
                 // Output the details of the delete request
                 AnsiConsole.Markup($"[green]- AXING [white]'{resource.OutputMessage}'[/][/]\n");
 
@@ -256,9 +261,15 @@ namespace Beeching.Commands
                         string jsonResponse = await response.Content.ReadAsStringAsync();
                         if (jsonResponse != null)
                         {
-                            resourcesFound.AddRange(
-                                JsonConvert.DeserializeObject<Dictionary<string, List<Resource>>>(jsonResponse)!["value"]
-                            );
+                            List<Resource> resources = JsonConvert.DeserializeObject<Dictionary<string, List<Resource>>>(jsonResponse)![
+                                "value"
+                            ];
+                            foreach (var resource in resources)
+                            {
+                                string[] sections = resource.Id.Split('/');
+                                resource.ResourceGroup = $"/subscriptions/{settings.Subscription}/resourceGroups/{sections[4]}";
+                                resourcesFound.Add(resource);
+                            }
                         }
                     }
                 }
@@ -275,7 +286,15 @@ namespace Beeching.Commands
 
                     if (jsonResponse != null)
                     {
-                        resourcesFound.AddRange(JsonConvert.DeserializeObject<Dictionary<string, List<Resource>>>(jsonResponse)!["value"]);
+                        List<Resource> resources = JsonConvert.DeserializeObject<Dictionary<string, List<Resource>>> (jsonResponse)![
+                            "value"
+                        ];
+                        foreach (var resource in resources)
+                        {
+                            string[] sections = resource.Id.Split ('/');
+                            resource.ResourceGroup = $"/subscriptions/{settings.Subscription}/resourceGroups/{sections[4]}";
+                            resourcesFound.Add (resource);
+                        }
                     }
                 }
 
@@ -350,9 +369,11 @@ namespace Beeching.Commands
         {
             AnsiConsole.Markup($"[green]- Checking found resources for locks[/]\n");
 
-            if(settings.Force == true)
+            List<ResourceLock> resourceLocks = new();
+
+            if (settings.Force == true)
             {
-                AnsiConsole.Markup ($"[green]- Force option provided - resource locks will be removed for axing[/]\n");
+                AnsiConsole.Markup($"[green]- Force option provided - resource locks will be removed for axing[/]\n");
             }
 
             string locks = $"/subscriptions/{settings.Subscription}/providers/Microsoft.Authorization/locks?api-version=2016-09-01";
@@ -363,17 +384,29 @@ namespace Beeching.Commands
                 string responseContent = await response.Content.ReadAsStringAsync();
                 if (responseContent != null)
                 {
+                    resourceLocks.AddRange(
+                        JsonConvert.DeserializeObject<Dictionary<string, List<ResourceLock>>>(responseContent)!["value"]
+                    );
+
                     foreach (var resource in resources)
                     {
-                        if (responseContent.Contains(resource.Id))
+                        foreach (var resourceLock in resourceLocks)
                         {
-                            if(settings.Force == false)
+                            if (
+                                resourceLock.Id == $"{resource.Id}/providers/{resourceLock.Type}/{resourceLock.Name}"
+                                || resourceLock.Id == $"{resource.ResourceGroup}/providers/{resourceLock.Type}/{resourceLock.Name}"
+                                || resourceLock.Id == $"/subscriptions/{settings.Subscription}/providers/{resourceLock.Type}/{resourceLock.Name}"
+                            )
                             {
-                                AnsiConsole.Markup (
-                                    $"[green]- Found resource {resource.OutputMessage} but it is locked and cannot be deleted[/]\n"
-                                );
+                                resource.ResourceLocks.Add(resourceLock);
+                                resource.IsLocked = true;
                             }
-                            resource.IsLocked = true;
+                        }
+                        if (settings.Force == false && resource.IsLocked == true)
+                        {
+                            AnsiConsole.Markup (
+                                $"[green]- Found resource {resource.OutputMessage} but it is locked and cannot be deleted[/]\n"
+                            );
                         }
                     }
                 }

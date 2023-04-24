@@ -19,10 +19,19 @@ namespace Beeching.Models
         [JsonPropertyName("tags")]
         public Dictionary<string, string> Tags { get; set; }
 
+        public string ResourceGroup { get; set; }
+
         public string? ApiVersion { get; set; }
 
         public string OutputMessage { get; set; }
 
         public bool IsLocked { get; set; }
+
+        public List<ResourceLock> ResourceLocks { get; set; }
+
+        public Resource()
+        {
+            ResourceLocks = new();
+        }
     }
 }
