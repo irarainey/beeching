@@ -1,3 +1,8 @@
+## 0.4.0
+
+- Added a resource lock check so it will not try to remove resources that are locked
+- Implemented `--force` option to attempt tp remove resources even if they are locked
+
 ## 0.3.0
 
 - Amended core axe logic to only axe individual resources and not resource groups and resources in the same run

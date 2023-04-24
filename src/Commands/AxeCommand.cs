@@ -16,11 +16,6 @@ namespace Beeching.Commands
 
         public override ValidationResult Validate(CommandContext context, AxeSettings settings)
         {
-            if (settings.Force)
-            {
-                return ValidationResult.Error("Force is not yet implemented.");
-            }
-
             if (!string.IsNullOrEmpty(settings.Name) && !string.IsNullOrEmpty(settings.Tag))
             {
                 return ValidationResult.Error("Only one of Name or Tag can be specified for resources to be axed.");

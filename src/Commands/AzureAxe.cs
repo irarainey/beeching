@@ -25,15 +25,8 @@ namespace Beeching.Commands
                 await AuthHelper.GetAccessToken(settings.Debug)
             );
 
-            // Get the list of resources to axe based on the name filter
+            // Get the list of resources to axe based on the supplied options
             List<Resource> resourcesToAxe = await GetAxeResourceList(settings);
-
-            // If no resources are found then drop out
-            if (resourcesToAxe.Count == 0)
-            {
-                AnsiConsole.Markup($"[cyan]- No resources found to axe[/]\n\n");
-                return 0;
-            }
 
             // If we are in what-if mode then just output the details of the resources to axe
             if (settings.WhatIf)
@@ -41,72 +34,36 @@ namespace Beeching.Commands
                 AnsiConsole.Markup($"[cyan]- +++ RUNNING WHAT-IF +++[/]\n");
             }
 
-            // List of URIs to axe with the formatted output message
-            List<(Uri, string)> axeUriList = new();
-
-            // Iterate through the list of resources to axe
-            foreach (var resource in resourcesToAxe)
+            int unlockedAxeCount = resourcesToAxe.Where(r => r.IsLocked == false).Count();
+            if ((unlockedAxeCount == 0 && settings.Force == false) || resourcesToAxe.Count == 0)
             {
-                // Split the resource ID into sections so we can get various parts of it
-                string[] sections = resource.Id.Split('/');
-                string resourceGroup = sections[4];
-                string provider;
-                string resourceType;
-                string outputMessage;
-
-                if (!settings.ResourceGroups)
+                AnsiConsole.Markup($"[cyan]- No resources found to axe[/]\n\n");
+            }
+            else
+            {
+                foreach (var resource in resourcesToAxe)
                 {
-                    provider = sections[6];
-                    resourceType = sections[7];
-                    outputMessage =
-                        $"[white]'{resource.Type}' '{resource.Name}'[/] [green]in resource group[/] [white]'{resourceGroup}'[/]";
-                    AnsiConsole.Markup($"[red]- WILL AXE[/] {outputMessage}\n");
-                }
-                else
-                {
-                    provider = "Microsoft.Resources";
-                    resourceType = "resourceGroups";
-                    outputMessage =
-                        $"[green]resource group[/] [white]'{resource.Name}'[/] [green]and[/] [red]ALL[/] [green]resources within it[/]";
-                    AnsiConsole.Markup($"[red]- WILL AXE[/] {outputMessage}\n");
-                }
-
-                if (!settings.WhatIf)
-                {
-                    // Get the latest API version for the resource type
-                    string? apiVersion = await GetLatestApiVersion(settings, provider, resourceType);
-
-                    // If we can't get the latest API version then skip over this resource
-                    if (apiVersion == null)
-                    {
-                        AnsiConsole.Markup($"[red]- Unable to get latest API version for {outputMessage}[/] so will exclude\n");
-                        continue;
-                    }
-
-                    // Build the URI for the delete request
-                    axeUriList.Add((new Uri($"{resource.Id}?api-version={apiVersion}", UriKind.Relative), outputMessage));
+                    string locked = resource.IsLocked == true ? "LOCKED" : "";
+                    AnsiConsole.Markup($"[red]- WILL AXE {locked}[/] [white]{resource.OutputMessage}[/]\n");
                 }
             }
 
-            // If we are in what-if mode then drop out here
             if (settings.WhatIf)
             {
                 AnsiConsole.Markup($"[cyan]- +++ WHAT-IF COMPLETE +++[/]\n");
                 return 0;
             }
 
-            // If the axe list is empty then drop out
-            if (axeUriList.Count == 0)
+            if ((unlockedAxeCount == 0 && settings.Force == false) || resourcesToAxe.Count == 0)
             {
-                AnsiConsole.Markup($"[cyan]- No resources found to axe[/]\n\n");
                 return 0;
             }
 
             // If we want to skip confirmation then be my guest
             if (!settings.SkipConfirmation)
             {
-                string title = $"\nAre you sure you want to axe these {axeUriList.Count} resources? [red](This cannot be undone)[/]";
-                if (axeUriList.Count == 1)
+                string title = $"\nAre you sure you want to axe these {resourcesToAxe.Count} resources? [red](This cannot be undone)[/]";
+                if (resourcesToAxe.Count == 1)
                 {
                     title = "\nAre you sure you want to axe this resource? [red](This cannot be undone)[/]";
                 }
@@ -125,7 +82,7 @@ namespace Beeching.Commands
             while (retryCount < (settings.MaxRetries + 1))
             {
                 // Iterate through the list of resources to axe and make the delete requests
-                axeStatus = await SwingTheAxe(settings, axeUriList);
+                axeStatus = await SwingTheAxe(settings, resourcesToAxe);
 
                 if (axeStatus.AxeList.Count == 0)
                 {
@@ -136,7 +93,7 @@ namespace Beeching.Commands
                     $"[red]- Probably a dependency issue. Pausing for {settings.RetryPause} seconds and will retry. Attempt {retryCount} of {settings.MaxRetries}[/]\n\n"
                 );
                 await Task.Delay(settings.RetryPause * 1000);
-                axeUriList = axeStatus.AxeList;
+                resourcesToAxe = axeStatus.AxeList;
                 retryCount++;
             }
 
@@ -146,7 +103,7 @@ namespace Beeching.Commands
             }
             else if (retryCount < (settings.MaxRetries + 1) && axeStatus.Status == false)
             {
-                AnsiConsole.Markup ($"[green]- Axe failed on some locked resources[/]\n\n");
+                AnsiConsole.Markup($"[green]- Axe failed on some locked resources[/]\n\n");
             }
             else
             {
@@ -158,16 +115,16 @@ namespace Beeching.Commands
             return 0;
         }
 
-        private async Task<AxeStatus> SwingTheAxe(AxeSettings settings, List<(Uri, string)> axeUriList)
+        private async Task<AxeStatus> SwingTheAxe(AxeSettings settings, List<Resource> axeUriList)
         {
             AxeStatus axeStatus = new();
             foreach (var resource in axeUriList)
             {
                 // Output the details of the delete request
-                AnsiConsole.Markup($"[green]- [red]AXING[/] [white]'{resource.Item2}'[/][/]\n");
+                AnsiConsole.Markup($"[green]- AXING [white]'{resource.OutputMessage}'[/][/]\n");
 
                 // Make the delete request
-                var response = await _client.DeleteAsync(resource.Item1);
+                var response = await _client.DeleteAsync(new Uri($"{resource.Id}?api-version={resource.ApiVersion}", UriKind.Relative));
 
                 if (settings.Debug)
                 {
@@ -326,7 +283,11 @@ namespace Beeching.Commands
                 if (!string.IsNullOrEmpty(settings.ResourceTypes))
                 {
                     List<string> allowedTypes = settings.ResourceTypes.Split(':').ToList();
-                    AnsiConsole.Markup($"[green]- Restricting resource types to [white]'{settings.ResourceTypes}'[/] only[/]\n");
+                    AnsiConsole.Markup($"[green]- Restricting resource types to:[/]\n");
+                    foreach (string type in allowedTypes)
+                    {
+                        AnsiConsole.Markup($"\t- [white]'{type}'[/]\n");
+                    }
                     resourcesFound = resourcesFound.Where(r => allowedTypes.Contains(r.Type)).ToList();
                 }
             }
@@ -343,8 +304,80 @@ namespace Beeching.Commands
                 resourcesFound = filteredResources;
             }
 
+            // Now we have our actual list of resources to axe, let's get the latest API version for each resource type
+            foreach (var resource in resourcesFound)
+            {
+                string[] sections = resource.Id.Split('/');
+                string resourceGroup = sections[4];
+                string provider;
+                string resourceType;
+
+                if (!settings.ResourceGroups)
+                {
+                    provider = sections[6];
+                    resourceType = sections[7];
+                    resource.OutputMessage =
+                        $"[white]'{resource.Type}' '{resource.Name}'[/] [green]in resource group[/] [white]'{resourceGroup}'[/]";
+                }
+                else
+                {
+                    provider = "Microsoft.Resources";
+                    resourceType = "resourceGroups";
+                    resource.OutputMessage =
+                        $"[green]resource group[/] [white]'{resource.Name}'[/] [green]and[/] [red]ALL[/] [green]resources within it[/]";
+                }
+
+                string? apiVersion = await GetLatestApiVersion(settings, provider, resourceType);
+
+                if (apiVersion == null)
+                {
+                    AnsiConsole.Markup($"[red]- Unable to get latest API version for {resource.OutputMessage}[/] so will exclude\n");
+                }
+
+                resource.ApiVersion = apiVersion;
+            }
+
+            // Remove any resources that we couldn't get an API version for
+            resourcesFound = resourcesFound.Except(resourcesFound.Where(r => string.IsNullOrEmpty(r.ApiVersion)).ToList()).ToList();
+
+            await CheckForLocks(settings, resourcesFound);
+
             // Return whatever is left
             return resourcesFound;
+        }
+
+        private async Task CheckForLocks(AxeSettings settings, List<Resource> resources)
+        {
+            AnsiConsole.Markup($"[green]- Checking found resources for locks[/]\n");
+
+            if(settings.Force == true)
+            {
+                AnsiConsole.Markup ($"[green]- Force option provided - resource locks will be removed for axing[/]\n");
+            }
+
+            string locks = $"/subscriptions/{settings.Subscription}/providers/Microsoft.Authorization/locks?api-version=2016-09-01";
+
+            var response = await _client.GetAsync(locks);
+            if (response.IsSuccessStatusCode)
+            {
+                string responseContent = await response.Content.ReadAsStringAsync();
+                if (responseContent != null)
+                {
+                    foreach (var resource in resources)
+                    {
+                        if (responseContent.Contains(resource.Id))
+                        {
+                            if(settings.Force == false)
+                            {
+                                AnsiConsole.Markup (
+                                    $"[green]- Found resource {resource.OutputMessage} but it is locked and cannot be deleted[/]\n"
+                                );
+                            }
+                            resource.IsLocked = true;
+                        }
+                    }
+                }
+            }
         }
 
         public static IAsyncPolicy<HttpResponseMessage> GetRetryAfterPolicy()

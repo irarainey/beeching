@@ -2,7 +2,7 @@
 {
     internal class AxeStatus
     {
-        public List<(Uri, string)> AxeList { get; set; }
+        public List<Resource> AxeList { get; set; }
 
         public bool Status { get; set; }
 

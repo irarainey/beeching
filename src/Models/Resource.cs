@@ -18,5 +18,11 @@ namespace Beeching.Models
 
         [JsonPropertyName("tags")]
         public Dictionary<string, string> Tags { get; set; }
+
+        public string? ApiVersion { get; set; }
+
+        public string OutputMessage { get; set; }
+
+        public bool IsLocked { get; set; }
     }
 }
