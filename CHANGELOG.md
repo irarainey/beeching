@@ -1,7 +1,7 @@
 ## 0.4.0
 
 - Added a resource lock check so it will not try to remove resources that are locked
-- Implemented `--force` option to attempt tp remove resources even if they are locked
+- Implemented `--force` option to attempt to axe resources even if they are locked by removing and replacing any locks
 
 ## 0.3.0
 
