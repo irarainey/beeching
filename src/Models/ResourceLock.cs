@@ -16,6 +16,7 @@ namespace Beeching.Models
         [JsonPropertyName ("name")]
         public string Name { get; set; }
 
+        [Newtonsoft.Json.JsonIgnore] 
         public string Scope { get; set; }
     }
 }

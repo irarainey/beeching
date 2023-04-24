@@ -5,6 +5,8 @@ using Newtonsoft.Json;
 using Polly;
 using Spectre.Console;
 using System.Net.Http.Headers;
+using System.Resources;
+using System.Text;
 
 namespace Beeching.Commands
 {
@@ -44,7 +46,8 @@ namespace Beeching.Commands
                 foreach (var resource in resourcesToAxe)
                 {
                     string locked = resource.IsLocked == true ? "LOCKED " : "";
-                    AnsiConsole.Markup($"[red]- WILL AXE {locked}[/][green]resource [/][white]{resource.OutputMessage}[/]\n");
+                    string group = settings.ResourceGroups == true? " and [red]ALL[/] resources within it" : "";
+                    AnsiConsole.Markup($"[green]- [red]WILL AXE {locked}[/]resource [white]{resource.OutputMessage}[/]{group}[/]\n");
                 }
             }
 
@@ -120,7 +123,8 @@ namespace Beeching.Commands
             AxeStatus axeStatus = new();
             foreach (var resource in axeUriList)
             {
-                if (resource.IsLocked)
+                bool skipAxe = false;
+                if (resource.IsLocked && settings.Force)
                 {
                     foreach (var resourceLock in resource.ResourceLocks)
                     {
@@ -132,13 +136,22 @@ namespace Beeching.Commands
                         );
                         if (!lockResponse.IsSuccessStatusCode)
                         {
-                            AnsiConsole.Markup($"[red]- Failed to remove lock for {resource.OutputMessage}[/]\n");
+                            AnsiConsole.Markup($"[red]- Failed to remove lock for {resource.OutputMessage}[/] - SKIPPING\n");
+                            skipAxe = true;
                         }
                     }
                 }
 
+                // If we can't remove the lock then skip the axe
+                if (skipAxe)
+                {
+                    continue;
+                }
+
+                string group = settings.ResourceGroups == true ? " and [red]ALL[/] resources within it" : "";
+
                 // Output the details of the delete request
-                AnsiConsole.Markup($"[green]- [red]AXING[/] [white]{resource.OutputMessage}[/][/]\n");
+                AnsiConsole.Markup($"[green]- [red]AXING[/] [white]{resource.OutputMessage}[/]{group}[/]\n");
 
                 // Make the delete request
                 var response = await _client.DeleteAsync(new Uri($"{resource.Id}?api-version={resource.ApiVersion}", UriKind.Relative));
@@ -168,6 +181,33 @@ namespace Beeching.Commands
                 else
                 {
                     AnsiConsole.Markup($"[green]- Resource axed successfully[/]\n");
+
+                    if (resource.IsLocked && settings.Force)
+                    {
+                        foreach (var resourceLock in resource.ResourceLocks)
+                        {
+                            if (
+                                (resourceLock.Scope == "resource group" && settings.ResourceGroups == false)
+                                || resourceLock.Scope == "subscription"
+                            )
+                            {
+                                AnsiConsole.Markup(
+                                    $"[green]- Adding {resourceLock.Scope} lock [white]{resourceLock.Name}[/] for [white]{resource.OutputMessage}[/][/]\n"
+                                );
+
+                                var createLockResponse = await _client.PutAsync(
+                                    new Uri($"{resourceLock.Id}?api-version=2016-09-01", UriKind.Relative),
+                                    new StringContent(JsonConvert.SerializeObject(resourceLock), Encoding.UTF8, "application/json")
+                                );
+
+                                if (!createLockResponse.IsSuccessStatusCode)
+                                {
+                                    AnsiConsole.Markup($"[red]- Failed to re-add lock for {resource.OutputMessage}[/]\n");
+                                    skipAxe = true;
+                                }
+                            }
+                        }
+                    }
                 }
             }
 
@@ -355,7 +395,7 @@ namespace Beeching.Commands
                     provider = "Microsoft.Resources";
                     resourceType = "resourceGroups";
                     resource.OutputMessage =
-                        $"[green]group[/] [white]{resource.Name}[/] [green]and[/] [red]ALL[/] [green]resources within it[/]";
+                        $"[green]group[/] [white]{resource.Name}[/]";
                 }
 
                 string? apiVersion = await GetLatestApiVersion(settings, provider, resourceType);
@@ -431,14 +471,6 @@ namespace Beeching.Commands
                         }
                         if (settings.Force == false && resource.IsLocked == true)
                         {
-                            if (settings.ResourceGroups)
-                            {
-                                resource.OutputMessage = resource.OutputMessage.Replace(
-                                    " [green]and[/] [red]ALL[/] [green]resources within it[/]",
-                                    ""
-                                );
-                            }
-
                             AnsiConsole.Markup(
                                 $"[green]- Found resource {resource.OutputMessage} but it's locked and cannot be deleted[/]\n"
                             );
