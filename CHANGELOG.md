@@ -1,7 +1,7 @@
 ## 0.5.0
 
 - Added a check to notify when a new version is available
-- Added checking of user roles
+- Added display of subscription name with subscription id
 
 ## 0.4.0
 

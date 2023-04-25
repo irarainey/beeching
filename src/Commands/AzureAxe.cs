@@ -423,7 +423,7 @@ namespace Beeching.Commands
 
             if (settings.Force == true)
             {
-                AnsiConsole.Markup($"[green]=> Force option provided - resource locks will be removed for axing[/]\n");
+                AnsiConsole.Markup($"[green]=> Detected --force. Resource locks will be removed and reapplied where applicable[/]\n");
             }
 
             string locks = $"/subscriptions/{settings.Subscription}/providers/Microsoft.Authorization/locks?api-version=2016-09-01";

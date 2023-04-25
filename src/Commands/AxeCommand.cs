@@ -67,30 +67,19 @@ namespace Beeching.Commands
 
         public override async Task<int> ExecuteAsync(CommandContext context, AxeSettings settings)
         {
-            AnsiConsole.Markup ($"[green]=> Determining running user[/]\n");
+            AnsiConsole.Markup ($"[green]=> Determining running user details[/]\n");
             (string, string) userInformation = AzCliHelper.GetSignedInUser ();
             AnsiConsole.Markup ($"[green]=> Running as user [white]{userInformation.Item2}[/] // [white]{userInformation.Item1}[/][/]\n");
 
-            AnsiConsole.Markup ($"[green]=> Determining subscription[/]\n");
+            AnsiConsole.Markup ($"[green]=> Determining subscription details[/]\n");
             settings.Subscription = GetSubscriptionId(settings);
+            string name = AzCliHelper.GetSubscriptionName (settings.Subscription.ToString());
             if (settings.Subscription == Guid.Empty)
             {
                 return -1;
             }
 
-            AnsiConsole.Markup ($"[green]=> Using subscription id [white]{settings.Subscription}[/][/]\n");
-
-            AnsiConsole.Markup ($"[green]=> Determining user roles[/]\n");
-            List<RoleAssignment> rolesAssignments = AzCliHelper.GetRoleAssignments(userInformation.Item1);
-            foreach (RoleAssignment role in rolesAssignments)
-            {
-                string scope = $"scope {role.Scope}";
-                if(role.Scope == $"/subscriptions/{settings.Subscription}")
-                {
-                    scope = $"[green]subscription[/] {settings.Subscription}";
-                }
-                AnsiConsole.Markup($"[green]=> User has role [white]{role.RoleDefinitionName}[/] on [white]{scope}[/][/]\n");
-            }
+            AnsiConsole.Markup ($"[green]=> Using subscription [white]{name}[/] // [white]{settings.Subscription}[/][/]\n");
 
             return await _azureAxe.AxeResources(settings);
         }
@@ -110,7 +99,7 @@ namespace Beeching.Commands
                         );
                     }
 
-                    subscriptionId = Guid.Parse(AzCliHelper.GetDefaultAzureSubscriptionId());
+                    subscriptionId = Guid.Parse(AzCliHelper.GetCurrentAzureSubscription());
 
                     if (settings.Debug)
                     {

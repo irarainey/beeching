@@ -1,5 +1,4 @@
 ﻿using Beeching.Models;
-using System.Collections.Generic;
 using System.Diagnostics;
 using System.Text.Json;
 
@@ -29,7 +28,7 @@ namespace Beeching.Helpers
                 + (Environment.OSVersion.Platform == PlatformID.Win32NT && _azCliExecutable.EndsWith(".cmd") == false ? ".cmd" : "");
         }
 
-        internal static string GetDefaultAzureSubscriptionId()
+        internal static string GetCurrentAzureSubscription()
         {
             string azCliExecutable = DetermineAzCliPath();
             using Process process = CreateProcess(azCliExecutable, "account show");
@@ -58,34 +57,27 @@ namespace Beeching.Helpers
             }
         }
 
-        internal static List<RoleAssignment> GetRoleAssignments(string principalId)
+        internal static string GetSubscriptionName(string subscriptionId)
         {
             string azCliExecutable = DetermineAzCliPath();
-            using Process process = CreateProcess(azCliExecutable, $"role assignment list --all --assignee {principalId}");
+
+            using Process process = CreateProcess(azCliExecutable, $"rest --uri https://management.azure.com/subscriptions/{subscriptionId}?api-version=2020-01-01");
             process.Start();
             string processOuput = process.StandardOutput.ReadToEnd();
             process.WaitForExit();
 
-            List<RoleAssignment> roles = new ();
+            string subscriptionName = "";
             if (process.ExitCode == 0)
             {
                 using var jsonOutput = JsonDocument.Parse (processOuput);
                 JsonElement root = jsonOutput.RootElement;
-                foreach (JsonElement element in root.EnumerateArray ())
+                if (root.TryGetProperty ("displayName", out JsonElement nameElement))
                 {
-                    roles.Add (new RoleAssignment
-                    {
-                        Id = element.GetProperty ("id").GetString () ?? "",
-                        PrincipalType = element.GetProperty ("principalType").GetString () ?? "",
-                        PrincipalName = element.GetProperty ("principalName").GetString () ?? "",
-                        RoleDefinitionId = element.GetProperty ("roleDefinitionId").GetString () ?? "",
-                        RoleDefinitionName = element.GetProperty ("roleDefinitionName").GetString () ?? "",
-                        Scope = element.GetProperty ("scope").GetString () ?? "",
-                    });
+                    subscriptionName = nameElement.GetString () ?? "";
                 }
             }
 
-            return roles;
+            return subscriptionName;
         }
 
         internal static (string, string) GetSignedInUser()
