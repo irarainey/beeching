@@ -38,10 +38,24 @@ app.Configure(config =>
 #endif
 });
 
+string installedVersion = VersionHelper.GetVersion();
+
 if (args.Contains("--version") || args.Contains("-v"))
 {
-    AnsiConsole.WriteLine($"{VersionHelper.GetVersion()}");
+    AnsiConsole.WriteLine(installedVersion);
     return 0;
+}
+
+string? latestVersion = await VersionHelper.GetLatestVersionAsync();
+
+if (latestVersion != null)
+{
+    if (VersionHelper.IsUpdateAvailable(installedVersion, latestVersion))
+    {
+        AnsiConsole.Markup ($"[green]- Installed Version: {installedVersion}[/]\n");
+        AnsiConsole.Markup ($"[green]- Latest Version: {latestVersion}[/]\n");
+        AnsiConsole.Markup ($"[green]- Update available: dotnet tool update -g beeching[/]\n");
+    }
 }
 
 AnsiConsole.Markup($"[green]{header}[/]\n");

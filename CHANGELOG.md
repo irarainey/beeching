@@ -1,3 +1,7 @@
+## 0.5.0
+
+- Added a check to notify when a new version is available
+
 ## 0.4.0
 
 - Added a resource lock check so it will not try to remove resources that are locked
