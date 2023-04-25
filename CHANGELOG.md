@@ -2,6 +2,7 @@
 
 - Added a check to notify when a new version is available
 - Added display of subscription name with subscription id
+- Added functionality to determine role assignments and detect if you will be able to axe resources
 
 ## 0.4.0
 
