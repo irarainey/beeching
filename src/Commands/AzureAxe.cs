@@ -32,13 +32,13 @@ namespace Beeching.Commands
             // If we are in what-if mode then just output the details of the resources to axe
             if (settings.WhatIf)
             {
-                AnsiConsole.Markup($"[cyan]- +++ RUNNING WHAT-IF +++[/]\n");
+                AnsiConsole.Markup($"[cyan]=> +++ RUNNING WHAT-IF +++[/]\n");
             }
 
             int unlockedAxeCount = resourcesToAxe.Where(r => r.IsLocked == false).Count();
             if ((unlockedAxeCount == 0 && settings.Force == false) || resourcesToAxe.Count == 0)
             {
-                AnsiConsole.Markup($"[cyan]- No resources found to axe[/]\n\n");
+                AnsiConsole.Markup($"[cyan]=> No resources found to axe[/]\n\n");
             }
             else
             {
@@ -46,13 +46,13 @@ namespace Beeching.Commands
                 {
                     string locked = resource.IsLocked == true ? "LOCKED " : "";
                     string group = settings.ResourceGroups == true ? " and [red]ALL[/] resources within it" : "";
-                    AnsiConsole.Markup($"[green]- [red]WILL AXE {locked}[/]resource [white]{resource.OutputMessage}[/]{group}[/]\n");
+                    AnsiConsole.Markup($"[green]=> [red]WILL AXE {locked}[/]resource [white]{resource.OutputMessage}[/]{group}[/]\n");
                 }
             }
 
             if (settings.WhatIf)
             {
-                AnsiConsole.Markup($"[cyan]- +++ WHAT-IF COMPLETE +++[/]\n");
+                AnsiConsole.Markup($"[cyan]=> +++ WHAT-IF COMPLETE +++[/]\n");
                 return 0;
             }
 
@@ -74,7 +74,7 @@ namespace Beeching.Commands
 
                 if (confirm == "No")
                 {
-                    AnsiConsole.Markup($"[green]- Resource axing abandoned[/]\n\n");
+                    AnsiConsole.Markup($"[green]=> Resource axing abandoned[/]\n\n");
                     return 0;
                 }
             }
@@ -92,7 +92,7 @@ namespace Beeching.Commands
                 }
 
                 AnsiConsole.Markup(
-                    $"[red]- Probably a dependency issue. Pausing for {settings.RetryPause} seconds and will retry. Attempt {retryCount} of {settings.MaxRetries}[/]\n\n"
+                    $"[red]=> Probably a dependency issue. Pausing for {settings.RetryPause} seconds and will retry. Attempt {retryCount} of {settings.MaxRetries}[/]\n\n"
                 );
                 await Task.Delay(settings.RetryPause * 1000);
                 resourcesToAxe = axeStatus.AxeList;
@@ -101,16 +101,16 @@ namespace Beeching.Commands
 
             if (retryCount < (settings.MaxRetries + 1) && axeStatus.Status == true)
             {
-                AnsiConsole.Markup($"[green]- All resources axed successfully[/]\n\n");
+                AnsiConsole.Markup($"[green]=> All resources axed successfully[/]\n\n");
             }
             else if (retryCount < (settings.MaxRetries + 1) && axeStatus.Status == false)
             {
-                AnsiConsole.Markup($"[green]- Axe failed on some locked resources[/]\n\n");
+                AnsiConsole.Markup($"[green]=> Axe failed on some locked resources[/]\n\n");
             }
             else
             {
                 AnsiConsole.Markup(
-                    $"[red]- Axe failed after {settings.MaxRetries} attempts. Try running the command again with --debug flag for more information[/]\n\n"
+                    $"[red]=> Axe failed after {settings.MaxRetries} attempts. Try running the command again with --debug flag for more information[/]\n\n"
                 );
             }
 
@@ -128,14 +128,14 @@ namespace Beeching.Commands
                     foreach (var resourceLock in resource.ResourceLocks)
                     {
                         AnsiConsole.Markup(
-                            $"[green]- Removing {resourceLock.Scope} lock [white]{resourceLock.Name}[/] for [white]{resource.OutputMessage}[/][/]\n"
+                            $"[green]=> Removing {resourceLock.Scope} lock [white]{resourceLock.Name}[/] for [white]{resource.OutputMessage}[/][/]\n"
                         );
                         var lockResponse = await _client.DeleteAsync(
                             new Uri($"{resourceLock.Id}?api-version=2016-09-01", UriKind.Relative)
                         );
                         if (!lockResponse.IsSuccessStatusCode)
                         {
-                            AnsiConsole.Markup($"[red]- Failed to remove lock for {resource.OutputMessage}[/] - SKIPPING\n");
+                            AnsiConsole.Markup($"[red]=> Failed to remove lock for {resource.OutputMessage}[/] - SKIPPING\n");
                             skipAxe = true;
                         }
                     }
@@ -150,15 +150,15 @@ namespace Beeching.Commands
                 string group = settings.ResourceGroups == true ? " and [red]ALL[/] resources within it" : "";
 
                 // Output the details of the delete request
-                AnsiConsole.Markup($"[green]- [red]AXING[/] [white]{resource.OutputMessage}[/]{group}[/]\n");
+                AnsiConsole.Markup($"[green]=> [red]AXING[/] [white]{resource.OutputMessage}[/]{group}[/]\n");
 
                 // Make the delete request
                 var response = await _client.DeleteAsync(new Uri($"{resource.Id}?api-version={resource.ApiVersion}", UriKind.Relative));
 
                 if (settings.Debug)
                 {
-                    AnsiConsole.Markup($"[green]- Response status code is {response.StatusCode}[/]");
-                    AnsiConsole.Markup($"[green]- Response content: {await response.Content.ReadAsStringAsync()}[/]");
+                    AnsiConsole.Markup($"[green]=> Response status code is {response.StatusCode}[/]");
+                    AnsiConsole.Markup($"[green]=> Response content: {await response.Content.ReadAsStringAsync()}[/]");
                 }
 
                 if (!response.IsSuccessStatusCode)
@@ -166,20 +166,20 @@ namespace Beeching.Commands
                     string responseContent = await response.Content.ReadAsStringAsync();
                     if (responseContent.Contains("Please remove the lock and try again"))
                     {
-                        AnsiConsole.Markup($"[red]- Axe failed because the resource is locked. Remove the lock and try again[/]\n");
+                        AnsiConsole.Markup($"[red]=> Axe failed because the resource is locked. Remove the lock and try again[/]\n");
                         axeStatus.Status = false;
                         continue;
                     }
                     else
                     {
-                        AnsiConsole.Markup($"[red]- Axe failed: {response.StatusCode}[/]\n");
+                        AnsiConsole.Markup($"[red]=> Axe failed: {response.StatusCode}[/]\n");
                         axeStatus.AxeList.Add(resource);
                         axeStatus.Status = false;
                     }
                 }
                 else
                 {
-                    AnsiConsole.Markup($"[green]- Resource axed successfully[/]\n");
+                    AnsiConsole.Markup($"[green]=> Resource axed successfully[/]\n");
 
                     if (resource.IsLocked && settings.Force)
                     {
@@ -191,7 +191,7 @@ namespace Beeching.Commands
                             )
                             {
                                 AnsiConsole.Markup(
-                                    $"[green]- Reapplying {resourceLock.Scope} lock [white]{resourceLock.Name}[/] for [white]{resource.OutputMessage}[/][/]\n"
+                                    $"[green]=> Reapplying {resourceLock.Scope} lock [white]{resourceLock.Name}[/] for [white]{resource.OutputMessage}[/][/]\n"
                                 );
 
                                 var createLockResponse = await _client.PutAsync(
@@ -201,7 +201,7 @@ namespace Beeching.Commands
 
                                 if (!createLockResponse.IsSuccessStatusCode)
                                 {
-                                    AnsiConsole.Markup($"[red]- Failed to reapply lock for {resource.OutputMessage}[/]\n");
+                                    AnsiConsole.Markup($"[red]=> Failed to reapply lock for {resource.OutputMessage}[/]\n");
                                     skipAxe = true;
                                 }
                             }
@@ -255,7 +255,7 @@ namespace Beeching.Commands
 
                     foreach (string name in names)
                     {
-                        AnsiConsole.Markup($"[green]- Searching for resource groups where name contains [white]{name}[/][/]\n");
+                        AnsiConsole.Markup($"[green]=> Searching for resource groups where name contains [white]{name}[/][/]\n");
                         HttpResponseMessage response = await _client.GetAsync(
                             $"subscriptions/{settings.Subscription}/resourcegroups?api-version=2021-04-01"
                         );
@@ -274,7 +274,7 @@ namespace Beeching.Commands
                     List<string> tag = settings.Tag.Split(':').ToList();
 
                     AnsiConsole.Markup(
-                        $"[green]- Searching for resource groups where tag [white]{tag[0]}[/] equals [white]{tag[1]}[/][/]\n"
+                        $"[green]=> Searching for resource groups where tag [white]{tag[0]}[/] equals [white]{tag[1]}[/][/]\n"
                     );
                     HttpResponseMessage response = await _client.GetAsync(
                         $"subscriptions/{settings.Subscription}/resourcegroups?$filter=tagName eq '{tag[0]}' and tagValue eq '{tag[1]}'&api-version=2021-04-01"
@@ -305,7 +305,7 @@ namespace Beeching.Commands
 
                     foreach (string name in names)
                     {
-                        AnsiConsole.Markup($"[green]- Searching for resources where name contains [white]{name}[/][/]\n");
+                        AnsiConsole.Markup($"[green]=> Searching for resources where name contains [white]{name}[/][/]\n");
                         HttpResponseMessage response = await _client.GetAsync(
                             $"subscriptions/{settings.Subscription}/resources?$filter=substringof('{name}',name)&api-version=2021-04-01"
                         );
@@ -329,7 +329,7 @@ namespace Beeching.Commands
                     // Split the tag into a key and value
                     List<string> tag = settings.Tag.Split(':').ToList();
 
-                    AnsiConsole.Markup($"[green]- Searching for resources where tag [white]{tag[0]}[/] equals [white]{tag[1]}[/][/]\n");
+                    AnsiConsole.Markup($"[green]=> Searching for resources where tag [white]{tag[0]}[/] equals [white]{tag[1]}[/][/]\n");
                     HttpResponseMessage response = await _client.GetAsync(
                         $"subscriptions/{settings.Subscription}/resources?$filter=tagName eq '{tag[0]}' and tagValue eq '{tag[1]}'&api-version=2021-04-01"
                     );
@@ -353,7 +353,7 @@ namespace Beeching.Commands
                 if (!string.IsNullOrEmpty(settings.ResourceTypes))
                 {
                     List<string> allowedTypes = settings.ResourceTypes.Split(':').ToList();
-                    AnsiConsole.Markup($"[green]- Restricting resource types to:[/]\n");
+                    AnsiConsole.Markup($"[green]=> Restricting resource types to:[/]\n");
                     foreach (string type in allowedTypes)
                     {
                         AnsiConsole.Markup($"\t- [white]{type}[/]\n");
@@ -369,7 +369,7 @@ namespace Beeching.Commands
                 List<Resource> filteredResources = resourcesFound.Where(r => !exclusions.Contains(r.Name)).ToList();
                 foreach (var resource in resourcesFound.Except(filteredResources))
                 {
-                    AnsiConsole.Markup($"[green]- Excluding [white]{resource.Name}[/][/]\n");
+                    AnsiConsole.Markup($"[green]=> Excluding [white]{resource.Name}[/][/]\n");
                 }
                 resourcesFound = filteredResources;
             }
@@ -400,7 +400,7 @@ namespace Beeching.Commands
 
                 if (apiVersion == null)
                 {
-                    AnsiConsole.Markup($"[red]- Unable to get latest API version for {resource.OutputMessage}[/] so will exclude\n");
+                    AnsiConsole.Markup($"[red]=> Unable to get latest API version for {resource.OutputMessage}[/] so will exclude\n");
                 }
 
                 resource.ApiVersion = apiVersion;
@@ -417,13 +417,13 @@ namespace Beeching.Commands
 
         private async Task DetermineLocks(AxeSettings settings, List<Resource> resources)
         {
-            AnsiConsole.Markup($"[green]- Checking found resources for locks[/]\n");
+            AnsiConsole.Markup($"[green]=> Checking found resources for locks[/]\n");
 
             List<ResourceLock> resourceLocks = new();
 
             if (settings.Force == true)
             {
-                AnsiConsole.Markup($"[green]- Force option provided - resource locks will be removed for axing[/]\n");
+                AnsiConsole.Markup($"[green]=> Force option provided - resource locks will be removed for axing[/]\n");
             }
 
             string locks = $"/subscriptions/{settings.Subscription}/providers/Microsoft.Authorization/locks?api-version=2016-09-01";
@@ -472,7 +472,7 @@ namespace Beeching.Commands
                         if (settings.Force == false && resource.IsLocked == true)
                         {
                             AnsiConsole.Markup(
-                                $"[green]- Found resource {resource.OutputMessage} but it's locked and cannot be deleted[/]\n"
+                                $"[green]=> Found resource {resource.OutputMessage} but it's locked and cannot be deleted[/]\n"
                             );
                         }
                     }

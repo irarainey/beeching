@@ -12,14 +12,14 @@ namespace Beeching.Helpers
 
             if (debug)
             {
-                AnsiConsole.WriteLine($"- Using token credential: {tokenCredential.GetType().Name} to fetch a token.");
+                AnsiConsole.WriteLine($"=> Using token credential: {tokenCredential.GetType().Name} to fetch a token.");
             }
 
             var token = await tokenCredential.GetTokenAsync(new TokenRequestContext(new[] { $"https://management.azure.com/.default" }));
 
             if (debug)
             {
-                AnsiConsole.WriteLine($"- Token retrieved and expires at: {token.ExpiresOn}");
+                AnsiConsole.WriteLine($"=> Token retrieved and expires at: {token.ExpiresOn}");
             }
 
             return token.Token;

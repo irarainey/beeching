@@ -47,7 +47,7 @@ if (args.Contains("--version") || args.Contains("-v"))
 }
 
 AnsiConsole.Markup($"[green]{header}[/]\n");
-AnsiConsole.Markup($"[green]- Version: {VersionHelper.GetVersion()}[/]\n");
+AnsiConsole.Markup($"[green]=> Version: {VersionHelper.GetVersion()}[/]\n");
 
 string? latestVersion = await VersionHelper.GetLatestVersionAsync ();
 
@@ -55,7 +55,7 @@ if (latestVersion != null)
 {
     if (VersionHelper.IsUpdateAvailable (installedVersion, latestVersion))
     {
-        AnsiConsole.Markup ($"[cyan]- An update is available {latestVersion}. Update using: dotnet tool update -g beeching[/]\n");
+        AnsiConsole.Markup ($"[cyan]=> An update is available {latestVersion}. Update using: dotnet tool update -g beeching[/]\n");
     }
 }
 
