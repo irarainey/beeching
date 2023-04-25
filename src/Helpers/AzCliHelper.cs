@@ -61,7 +61,10 @@ namespace Beeching.Helpers
         {
             string azCliExecutable = DetermineAzCliPath();
 
-            using Process process = CreateProcess(azCliExecutable, $"rest --uri https://management.azure.com/subscriptions/{subscriptionId}?api-version=2020-01-01");
+            using Process process = CreateProcess(
+                azCliExecutable,
+                $"rest --uri https://management.azure.com/subscriptions/{subscriptionId}?api-version=2020-01-01"
+            );
             process.Start();
             string processOuput = process.StandardOutput.ReadToEnd();
             process.WaitForExit();
@@ -69,11 +72,11 @@ namespace Beeching.Helpers
             string subscriptionName = "";
             if (process.ExitCode == 0)
             {
-                using var jsonOutput = JsonDocument.Parse (processOuput);
+                using var jsonOutput = JsonDocument.Parse(processOuput);
                 JsonElement root = jsonOutput.RootElement;
-                if (root.TryGetProperty ("displayName", out JsonElement nameElement))
+                if (root.TryGetProperty("displayName", out JsonElement nameElement))
                 {
-                    subscriptionName = nameElement.GetString () ?? "";
+                    subscriptionName = nameElement.GetString() ?? "";
                 }
             }
 
@@ -103,9 +106,9 @@ namespace Beeching.Helpers
                     result.Item1 = "";
                 }
 
-                if (root.TryGetProperty ("displayName", out JsonElement displayNameElement))
+                if (root.TryGetProperty("displayName", out JsonElement displayNameElement))
                 {
-                    result.Item2 = displayNameElement.GetString () ?? "";
+                    result.Item2 = displayNameElement.GetString() ?? "";
                 }
                 else
                 {

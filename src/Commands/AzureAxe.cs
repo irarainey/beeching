@@ -6,6 +6,8 @@ using Polly;
 using Spectre.Console;
 using System.Net.Http.Headers;
 using System.Text;
+using System.Text.Json;
+using System.Threading.Tasks.Sources;
 
 namespace Beeching.Commands
 {
@@ -44,9 +46,29 @@ namespace Beeching.Commands
             {
                 foreach (var resource in resourcesToAxe)
                 {
-                    string locked = resource.IsLocked == true ? "LOCKED " : "";
-                    string group = settings.ResourceGroups == true ? " and [red]ALL[/] resources within it" : "";
-                    AnsiConsole.Markup($"[green]=> [red]WILL AXE {locked}[/]resource [white]{resource.OutputMessage}[/]{group}[/]\n");
+                    if (resource.Roles.Where(r => r.Properties.RoleName == "Owner").Any())
+                    {
+                        AnsiConsole.Markup($"[green]=> Role [white]Owner[/] found on resource [white]{resource.OutputMessage}[/][/]\n");
+                    }
+                    else if (resource.Roles.Where(r => r.Properties.RoleName == "Contributor").Any())
+                    {
+                        resource.Skip = resource.IsLocked == true ? true : false;
+                        string skipMessage = resource.Skip == true ? " so will not be able to remove any locks - [white]SKIPPING[/]" : "";
+                        string lockedState = resource.IsLocked == true ? "[red]LOCKED[/] " : "";
+                        AnsiConsole.Markup ($"[green]=> Role [white]Contributor[/] found on {lockedState}resource [white]{resource.OutputMessage}[/]{skipMessage}[/]\n");
+                    }
+                    else
+                    {
+                        var role = resource.Roles.FirstOrDefault()?.Properties.RoleName;
+                        AnsiConsole.Markup ($"[green]=> Role [white]{role}[/] found on resource [white]{resource.OutputMessage}[/] so deletion will most likely fail but we can give it a go[/]\n");
+                    }
+
+                    if (resource.Skip == false)
+                    {
+                        string locked = resource.IsLocked == true ? "LOCKED " : "";
+                        string group = settings.ResourceGroups == true ? " and [red]ALL[/] resources within it" : "";
+                        AnsiConsole.Markup ($"[green]=> [red]WILL AXE {locked}[/]resource [white]{resource.OutputMessage}[/]{group}[/]\n");
+                    }
                 }
             }
 
@@ -56,8 +78,9 @@ namespace Beeching.Commands
                 return 0;
             }
 
-            if ((unlockedAxeCount == 0 && settings.Force == false) || resourcesToAxe.Count == 0)
+            if ((unlockedAxeCount == 0 && settings.Force == false) || resourcesToAxe.Count == 0 || resourcesToAxe.Where(r => r.Skip == false).Count() == 0)
             {
+                AnsiConsole.Markup ($"[cyan]=> No resources to axe[/]\n\n");
                 return 0;
             }
 
@@ -221,6 +244,13 @@ namespace Beeching.Commands
 
             string apiJson = await apiVersion.Content.ReadAsStringAsync();
             List<ApiVersion> allApiVersions = new();
+
+            if(apiJson.Contains("Microsoft.Resources' does not contain sufficient information to enforce access control policy"))
+            {
+                AnsiConsole.Markup($"[red]=> You do not have sufficient permissions determine latest API version. Please check your subscription permissions and try again[/]\n");
+                return null;
+            }
+
             allApiVersions = JsonConvert.DeserializeObject<Dictionary<string, List<ApiVersion>>>(apiJson)!["value"];
 
             if (allApiVersions == null)
@@ -400,7 +430,7 @@ namespace Beeching.Commands
 
                 if (apiVersion == null)
                 {
-                    AnsiConsole.Markup($"[red]=> Unable to get latest API version for {resource.OutputMessage}[/] so will exclude\n");
+                    AnsiConsole.Markup($"[green]=> Unable to get latest API version for {resource.OutputMessage} so will exclude[/]\n");
                 }
 
                 resource.ApiVersion = apiVersion;
@@ -411,13 +441,62 @@ namespace Beeching.Commands
 
             await DetermineLocks(settings, resourcesFound);
 
+            await DetermineRoles(settings, resourcesFound);
+
             // Return whatever is left
             return resourcesFound;
         }
 
+        private async Task DetermineRoles(AxeSettings settings, List<Resource> resources)
+        {
+            AnsiConsole.Markup($"[green]=> Checking resources for role assignments[/]\n");
+
+            foreach (Resource resource in resources)
+            {
+                string roleId =
+                    $"{resource.Id}/providers/Microsoft.Authorization/roleAssignments?$filter=principalId eq '{settings.UserId}'&api-version=2022-04-01";
+                HttpResponseMessage response = await _client.GetAsync(roleId);
+                if (response.IsSuccessStatusCode)
+                {
+                    string jsonResponse = await response.Content.ReadAsStringAsync();
+                    if (jsonResponse != null)
+                    {
+                        List<dynamic> roles = JsonConvert.DeserializeObject<Dictionary<string, List<dynamic>>>(jsonResponse)!["value"];
+                        foreach (var role in roles)
+                        {
+                            RoleDefinition roleDefinition = await GetRoleDefinition(role.properties.roleDefinitionId.ToString());
+                            if (roleDefinition.Properties.RoleName == "User Access Administrator")
+                            {
+                                continue;
+                            }
+
+                            resource.Roles.Add(roleDefinition);
+                        }
+                    }
+                }
+            }
+        }
+
+        private async Task<RoleDefinition> GetRoleDefinition(string roleDefinitionId)
+        {
+            string[] sections = roleDefinitionId.Split('/');
+            string roleId = sections[^1];
+            string roleDefinition = $"providers/Microsoft.Authorization/roleDefinitions/{roleId}?api-version=2022-04-01";
+            HttpResponseMessage response = await _client.GetAsync(roleDefinition);
+            if (response.IsSuccessStatusCode)
+            {
+                string jsonResponse = await response.Content.ReadAsStringAsync();
+                if (jsonResponse != null)
+                {
+                    return JsonConvert.DeserializeObject<RoleDefinition>(jsonResponse)!;
+                }
+            }
+            return new RoleDefinition();
+        }
+
         private async Task DetermineLocks(AxeSettings settings, List<Resource> resources)
         {
-            AnsiConsole.Markup($"[green]=> Checking found resources for locks[/]\n");
+            AnsiConsole.Markup($"[green]=> Checking resources for locks[/]\n");
 
             List<ResourceLock> resourceLocks = new();
 

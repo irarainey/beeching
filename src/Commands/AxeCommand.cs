@@ -69,6 +69,7 @@ namespace Beeching.Commands
         {
             AnsiConsole.Markup ($"[green]=> Determining running user details[/]\n");
             (string, string) userInformation = AzCliHelper.GetSignedInUser ();
+            settings.UserId = userInformation.Item1;
             AnsiConsole.Markup ($"[green]=> Running as user [white]{userInformation.Item2}[/] // [white]{userInformation.Item1}[/][/]\n");
 
             AnsiConsole.Markup ($"[green]=> Determining subscription details[/]\n");

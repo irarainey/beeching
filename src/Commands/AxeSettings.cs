@@ -68,5 +68,7 @@ namespace Beeching.Commands
         [Description ("Reports the application version.")]
         [DefaultValue (false)]
         public bool Version { get; set; }
+
+        public string UserId { get; set; }
     }
 }
