@@ -1,5 +1,6 @@
 using Beeching.Commands.Interfaces;
 using Beeching.Helpers;
+using Beeching.Models;
 using Spectre.Console;
 using Spectre.Console.Cli;
 
@@ -66,16 +67,30 @@ namespace Beeching.Commands
 
         public override async Task<int> ExecuteAsync(CommandContext context, AxeSettings settings)
         {
-            settings.Subscription = GetSubscriptionId(settings);
+            AnsiConsole.Markup ($"[green]=> Determining running user[/]\n");
+            (string, string) userInformation = AzCliHelper.GetSignedInUser ();
+            AnsiConsole.Markup ($"[green]=> Running as user [white]{userInformation.Item2}[/] // [white]{userInformation.Item1}[/][/]\n");
 
+            AnsiConsole.Markup ($"[green]=> Determining subscription[/]\n");
+            settings.Subscription = GetSubscriptionId(settings);
             if (settings.Subscription == Guid.Empty)
             {
                 return -1;
             }
 
-            (string, string) userInformation = AzCliHelper.GetSignedInUser();
-            AnsiConsole.Markup($"[green]=> Running as user [white]{userInformation.Item2}[/] // [white]{userInformation.Item1}[/][/]\n");
-            AnsiConsole.Markup($"[green]=> Using subscription id [white]{settings.Subscription}[/][/]\n");
+            AnsiConsole.Markup ($"[green]=> Using subscription id [white]{settings.Subscription}[/][/]\n");
+
+            AnsiConsole.Markup ($"[green]=> Determining user roles[/]\n");
+            List<RoleAssignment> rolesAssignments = AzCliHelper.GetRoleAssignments(userInformation.Item1);
+            foreach (RoleAssignment role in rolesAssignments)
+            {
+                string scope = $"scope {role.Scope}";
+                if(role.Scope == $"/subscriptions/{settings.Subscription}")
+                {
+                    scope = $"[green]subscription[/] {settings.Subscription}";
+                }
+                AnsiConsole.Markup($"[green]=> User has role [white]{role.RoleDefinitionName}[/] on [white]{scope}[/][/]\n");
+            }
 
             return await _azureAxe.AxeResources(settings);
         }

@@ -1,4 +1,6 @@
-﻿using System.Diagnostics;
+﻿using Beeching.Models;
+using System.Collections.Generic;
+using System.Diagnostics;
 using System.Text.Json;
 
 namespace Beeching.Helpers
@@ -54,6 +56,36 @@ namespace Beeching.Helpers
                 string error = process.StandardError.ReadToEnd();
                 throw new Exception($"Error executing '{azCliExecutable} account show': {error}");
             }
+        }
+
+        internal static List<RoleAssignment> GetRoleAssignments(string principalId)
+        {
+            string azCliExecutable = DetermineAzCliPath();
+            using Process process = CreateProcess(azCliExecutable, $"role assignment list --all --assignee {principalId}");
+            process.Start();
+            string processOuput = process.StandardOutput.ReadToEnd();
+            process.WaitForExit();
+
+            List<RoleAssignment> roles = new ();
+            if (process.ExitCode == 0)
+            {
+                using var jsonOutput = JsonDocument.Parse (processOuput);
+                JsonElement root = jsonOutput.RootElement;
+                foreach (JsonElement element in root.EnumerateArray ())
+                {
+                    roles.Add (new RoleAssignment
+                    {
+                        Id = element.GetProperty ("id").GetString () ?? "",
+                        PrincipalType = element.GetProperty ("principalType").GetString () ?? "",
+                        PrincipalName = element.GetProperty ("principalName").GetString () ?? "",
+                        RoleDefinitionId = element.GetProperty ("roleDefinitionId").GetString () ?? "",
+                        RoleDefinitionName = element.GetProperty ("roleDefinitionName").GetString () ?? "",
+                        Scope = element.GetProperty ("scope").GetString () ?? "",
+                    });
+                }
+            }
+
+            return roles;
         }
 
         internal static (string, string) GetSignedInUser()

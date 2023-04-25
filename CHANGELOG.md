@@ -1,6 +1,7 @@
 ## 0.5.0
 
 - Added a check to notify when a new version is available
+- Added checking of user roles
 
 ## 0.4.0
 
