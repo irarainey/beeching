@@ -1,5 +1,4 @@
 using Beeching.Commands.Interfaces;
-using Beeching.Helpers;
 using Spectre.Console;
 using Spectre.Console.Cli;
 
@@ -66,24 +65,6 @@ namespace Beeching.Commands
 
         public override async Task<int> ExecuteAsync(CommandContext context, AxeSettings settings)
         {
-            AnsiConsole.Markup($"[green]=> Determining running user details[/]\n");
-
-            (string, string) userInformation = AzCliHelper.GetSignedInUser();
-            settings.UserId = userInformation.Item1;
-
-            AnsiConsole.Markup($"[green]=> Running as user [white]{userInformation.Item2}[/] // [white]{userInformation.Item1}[/][/]\n");
-            AnsiConsole.Markup($"[green]=> Determining subscription details[/]\n");
-
-            settings.Subscription = AzCliHelper.GetSubscriptionId(settings);
-            if (settings.Subscription == Guid.Empty)
-            {
-                return -1;
-            }
-
-            string name = AzCliHelper.GetSubscriptionName(settings.Subscription.ToString());
-
-            AnsiConsole.Markup($"[green]=> Using subscription [white]{name}[/] // [white]{settings.Subscription}[/][/]\n");
-
             return await _axe.AxeResources(settings);
         }
     }

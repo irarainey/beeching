@@ -97,30 +97,31 @@ namespace Beeching.Helpers
 
         public static string GetSubscriptionName(string subscriptionId)
         {
-            return CallAzCliRest($"/subscriptions/{subscriptionId}?api-version=2020-01-01", "displayName");
+            string output = CallAzCliRest($"/subscriptions/{subscriptionId}?api-version=2020-01-01");
+
+            using var jsonOutput = JsonDocument.Parse(output);
+            JsonElement root = jsonOutput.RootElement;
+            if (root.TryGetProperty("displayName", out JsonElement displayNameElement))
+            {
+                return displayNameElement.GetString() ?? string.Empty;
+            }
+            else
+            {
+                return "[Error Determining Name]";
+            }
         }
 
-        public static string CallAzCliRest(string uri, string objectName)
+        public static string CallAzCliRest(string uri)
         {
             string azCliExecutable = DetermineAzCliPath();
 
             using Process process = CreateProcess(azCliExecutable, $"rest --uri {Constants.ArmBaseUrl}{uri}");
             process.Start();
-            string processOuput = process.StandardOutput.ReadToEnd();
+            string output = process.StandardOutput.ReadToEnd();
+            string error = process.StandardError.ReadToEnd();
             process.WaitForExit();
 
-            string returnValue = string.Empty;
-            if (process.ExitCode == 0)
-            {
-                using var jsonOutput = JsonDocument.Parse(processOuput);
-                JsonElement root = jsonOutput.RootElement;
-                if (root.TryGetProperty(objectName, out JsonElement item))
-                {
-                    returnValue = item.GetString() ?? string.Empty;
-                }
-            }
-
-            return returnValue;
+            return process.ExitCode == 0 ? output : error;
         }
 
         public static (string, string) GetSignedInUser()
@@ -173,6 +174,7 @@ namespace Beeching.Helpers
                     FileName = filename,
                     Arguments = arguments,
                     RedirectStandardOutput = true,
+                    RedirectStandardError = true,
                     UseShellExecute = false,
                     CreateNoWindow = true
                 }

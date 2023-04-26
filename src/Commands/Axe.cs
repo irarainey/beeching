@@ -26,6 +26,38 @@ namespace Beeching.Commands
                 await AuthHelper.GetAccessToken(settings.Debug)
             );
 
+            AnsiConsole.Markup($"[green]=> Determining running user details[/]\n");
+
+            (string, string) userInformation = AzCliHelper.GetSignedInUser();
+            settings.UserId = userInformation.Item1;
+
+            AnsiConsole.Markup($"[green]=> Running as user [white]{userInformation.Item2}[/] // [white]{userInformation.Item1}[/][/]\n");
+            AnsiConsole.Markup($"[green]=> Determining subscription details[/]\n");
+
+            settings.Subscription = AzCliHelper.GetSubscriptionId(settings);
+            if (settings.Subscription == Guid.Empty)
+            {
+                return -1;
+            }
+
+            string name = AzCliHelper.GetSubscriptionName(settings.Subscription.ToString());
+
+            AnsiConsole.Markup($"[green]=> Using subscription [white]{name}[/] // [white]{settings.Subscription}[/][/]\n");
+
+            List<EffectiveRole> subscriptionRoles = await DetermineSubscriptionRoles(settings);
+
+            if (subscriptionRoles.Count > 0)
+            {
+                string primaryRole = subscriptionRoles.OrderBy(r => r.Priority).First().Name;
+                settings.PrivilegedUserSubscriptionRole = primaryRole;
+                AnsiConsole.Markup($"[green]=> Subscription [white]{settings.PrivilegedUserSubscriptionRole}[/] role found[/]\n");
+            }
+            else
+            {
+                settings.PrivilegedUserSubscriptionRole = "None";
+                AnsiConsole.Markup($"[green]=> No subscription roles found[/]\n");
+            }
+
             // Get the list of resources to axe based on the supplied options
             List<Resource> resourcesToAxe = await GetAxeResourceList(settings);
 
@@ -35,37 +67,44 @@ namespace Beeching.Commands
                 AnsiConsole.Markup($"[cyan]=> +++ RUNNING WHAT-IF +++[/]\n");
             }
 
+            bool showedNoResources = false;
             int unlockedAxeCount = resourcesToAxe.Where(r => r.IsLocked == false).Count();
             if ((unlockedAxeCount == 0 && settings.Force == false) || resourcesToAxe.Count == 0)
             {
-                AnsiConsole.Markup($"[cyan]=> No resources found to axe[/]\n\n");
+                AnsiConsole.Markup($"[cyan]=> No resources to axe[/]\n\n");
+                showedNoResources = true;
             }
             else
             {
                 foreach (var resource in resourcesToAxe)
                 {
-                    if (resource.Roles.Where(r => r.Properties.RoleName == "Owner").Any())
-                    {
-                        AnsiConsole.Markup($"[green]=> Role [white]Owner[/] found on resource [white]{resource.OutputMessage}[/][/]\n");
-                    }
-                    else if (resource.Roles.Where(r => r.Properties.RoleName == "Contributor").Any())
-                    {
-                        resource.Skip = resource.IsLocked == true ? true : false;
-                        string skipMessage = resource.Skip == true ? " so will not be able to remove any locks - [white]SKIPPING[/]" : string.Empty;
-                        string lockedState = resource.IsLocked == true ? "[red]LOCKED[/] " : string.Empty;
-                        AnsiConsole.Markup ($"[green]=> Role [white]Contributor[/] found on {lockedState}resource [white]{resource.OutputMessage}[/]{skipMessage}[/]\n");
-                    }
-                    else
-                    {
-                        var role = resource.Roles.FirstOrDefault()?.Properties.RoleName;
-                        AnsiConsole.Markup ($"[green]=> Role [white]{role}[/] found on resource [white]{resource.OutputMessage}[/] so deletion will most likely fail but we can give it a go[/]\n");
-                    }
+                    //if (resource.Roles.Where(r => r.Properties.RoleName == "Owner").Any())
+                    //{
+                    //    AnsiConsole.Markup($"[green]=> Role [white]Owner[/] found on resource [white]{resource.OutputMessage}[/][/]\n");
+                    //}
+                    //else if (resource.Roles.Where(r => r.Properties.RoleName == "Contributor").Any())
+                    //{
+                    //    resource.Skip = resource.IsLocked == true ? true : false;
+                    //    string skipMessage =
+                    //        resource.Skip == true ? " so will not be able to remove any locks - [white]SKIPPING[/]" : string.Empty;
+                    //    string lockedState = resource.IsLocked == true ? "[red]LOCKED[/] " : string.Empty;
+                    //    AnsiConsole.Markup(
+                    //        $"[green]=> Role [white]Contributor[/] found on {lockedState}resource [white]{resource.OutputMessage}[/]{skipMessage}[/]\n"
+                    //    );
+                    //}
+                    //else
+                    //{
+                    //    var role = resource.Roles.FirstOrDefault()?.Properties.RoleName;
+                    //    AnsiConsole.Markup(
+                    //        $"[green]=> Role [white]{role}[/] found on resource [white]{resource.OutputMessage}[/] so deletion will most likely fail but we can give it a go[/]\n"
+                    //    );
+                    //}
 
                     if (resource.Skip == false)
                     {
                         string locked = resource.IsLocked == true ? "LOCKED " : string.Empty;
                         string group = settings.ResourceGroups == true ? " and [red]ALL[/] resources within it" : string.Empty;
-                        AnsiConsole.Markup ($"[green]=> [red]WILL AXE {locked}[/]resource [white]{resource.OutputMessage}[/]{group}[/]\n");
+                        AnsiConsole.Markup($"[green]=> [red]WILL AXE {locked}[/]resource [white]{resource.OutputMessage}[/]{group}[/]\n");
                     }
                 }
             }
@@ -76,9 +115,16 @@ namespace Beeching.Commands
                 return 0;
             }
 
-            if ((unlockedAxeCount == 0 && settings.Force == false) || resourcesToAxe.Count == 0 || resourcesToAxe.Where(r => r.Skip == false).Count() == 0)
+            if (
+                (unlockedAxeCount == 0 && settings.Force == false)
+                || resourcesToAxe.Count == 0
+                || resourcesToAxe.Where(r => r.Skip == false).Count() == 0
+            )
             {
-                AnsiConsole.Markup ($"[cyan]=> No resources to axe[/]\n\n");
+                if (showedNoResources == false)
+                {
+                    AnsiConsole.Markup($"[cyan]=> No resources to axe[/]\n\n");
+                }
                 return 0;
             }
 
@@ -113,7 +159,7 @@ namespace Beeching.Commands
                 }
 
                 AnsiConsole.Markup(
-                    $"[red]=> Probably a dependency issue. Pausing for {settings.RetryPause} seconds and will retry. Attempt {retryCount} of {settings.MaxRetries}[/]\n\n"
+                    $"[green]=>[/] [red]Probably a dependency issue. Pausing for {settings.RetryPause} seconds and will retry. Attempt {retryCount} of {settings.MaxRetries}[/]\n\n"
                 );
                 await Task.Delay(settings.RetryPause * 1000);
                 resourcesToAxe = axeStatus.AxeList;
@@ -126,12 +172,12 @@ namespace Beeching.Commands
             }
             else if (retryCount < (settings.MaxRetries + 1) && axeStatus.Status == false)
             {
-                AnsiConsole.Markup($"[green]=> Axe failed on some locked resources[/]\n\n");
+                AnsiConsole.Markup($"[green]=> Axe failed on some resources[/]\n\n");
             }
             else
             {
                 AnsiConsole.Markup(
-                    $"[red]=> Axe failed after {settings.MaxRetries} attempts. Try running the command again with --debug flag for more information[/]\n\n"
+                    $"[green]=>[/] [red]Axe failed after {settings.MaxRetries} attempts. Try running the command again with --debug flag for more information[/]\n\n"
                 );
             }
 
@@ -156,7 +202,7 @@ namespace Beeching.Commands
                         );
                         if (!lockResponse.IsSuccessStatusCode)
                         {
-                            AnsiConsole.Markup($"[red]=> Failed to remove lock for {resource.OutputMessage}[/] - SKIPPING\n");
+                            AnsiConsole.Markup($"[green]=>[/] [red]Failed to remove lock for {resource.OutputMessage}[/] - SKIPPING\n");
                             skipAxe = true;
                         }
                     }
@@ -187,13 +233,21 @@ namespace Beeching.Commands
                     string responseContent = await response.Content.ReadAsStringAsync();
                     if (responseContent.Contains("Please remove the lock and try again"))
                     {
-                        AnsiConsole.Markup($"[red]=> Axe failed because the resource is locked. Remove the lock and try again[/]\n");
+                        AnsiConsole.Markup(
+                            $"[green]=>[/] [red]Axe failed because the resource is locked. Remove the lock and try again[/]\n"
+                        );
+                        axeStatus.Status = false;
+                        continue;
+                    }
+                    else if (response.StatusCode.ToString() == "Forbidden")
+                    {
+                        AnsiConsole.Markup($"[green]=>[/] [red]Axe failed: Permission denied - [white]SKIPPING[/][/]\n");
                         axeStatus.Status = false;
                         continue;
                     }
                     else
                     {
-                        AnsiConsole.Markup($"[red]=> Axe failed: {response.StatusCode}[/]\n");
+                        AnsiConsole.Markup($"[green]=>[/] [red]Axe failed: {response.StatusCode}[/]\n");
                         axeStatus.AxeList.Add(resource);
                         axeStatus.Status = false;
                     }
@@ -222,7 +276,7 @@ namespace Beeching.Commands
 
                                 if (!createLockResponse.IsSuccessStatusCode)
                                 {
-                                    AnsiConsole.Markup($"[red]=> Failed to reapply lock for {resource.OutputMessage}[/]\n");
+                                    AnsiConsole.Markup($"[green]=>[/] [red]Failed to reapply lock for {resource.OutputMessage}[/]\n");
                                     skipAxe = true;
                                 }
                             }
@@ -243,9 +297,11 @@ namespace Beeching.Commands
             string apiJson = await apiVersion.Content.ReadAsStringAsync();
             List<ApiVersion> allApiVersions = new();
 
-            if(apiJson.Contains("Microsoft.Resources' does not contain sufficient information to enforce access control policy"))
+            if (apiJson.Contains("Microsoft.Resources' does not contain sufficient information to enforce access control policy"))
             {
-                AnsiConsole.Markup($"[red]=> You do not have sufficient permissions determine latest API version. Please check your subscription permissions and try again[/]\n");
+                AnsiConsole.Markup(
+                    $"[green]=>[/] [red]You do not have sufficient permissions determine latest API version. Please check your subscription permissions and try again[/]\n"
+                );
                 return null;
             }
 
@@ -443,6 +499,83 @@ namespace Beeching.Commands
 
             // Return whatever is left
             return resourcesFound;
+        }
+
+        private async Task<List<EffectiveRole>> DetermineSubscriptionRoles(AxeSettings settings)
+        {
+            List<EffectiveRole> subscriptionRoles = new();
+            string roleId =
+                $"subscriptions/{settings.Subscription}/providers/Microsoft.Authorization/roleAssignments?$filter=principalId eq '{settings.UserId}'&api-version=2022-04-01";
+            HttpResponseMessage response = await _client.GetAsync(roleId);
+            if (response.IsSuccessStatusCode)
+            {
+                string jsonResponse = await response.Content.ReadAsStringAsync();
+                if (jsonResponse != null)
+                {
+                    List<dynamic> roles = JsonConvert.DeserializeObject<Dictionary<string, List<dynamic>>>(jsonResponse)!["value"];
+                    foreach (var role in roles)
+                    {
+                        RoleDefinition roleDefinition = await GetRoleDefinition(role.properties.roleDefinitionId.ToString());
+
+                        if (role.properties.scope != $"/subscriptions/{settings.Subscription}")
+                        {
+                            continue;
+                        }
+
+                        EffectiveRole effectiveRole =
+                            new()
+                            {
+                                RoleDefinitionId = roleDefinition.Name,
+                                Scope = role.properties.scope,
+                                ScopeType = "Subscription",
+                                Name = roleDefinition.Properties.RoleName,
+                                Type = roleDefinition.Properties.Type
+                            };
+
+                        if (effectiveRole.Name == "Owner")
+                        {
+                            effectiveRole.Priority = 0;
+                        }
+                        else if (effectiveRole.Name == "Contributor")
+                        {
+                            effectiveRole.Priority = 1;
+                        }
+                        else
+                        {
+                            effectiveRole.Priority = 2;
+                        }
+
+                        bool hasFullPermission = roleDefinition.Properties.Permissions.Where(r => r.Actions.Contains("*")).Any();
+                        bool hasFullAuthPermission = roleDefinition.Properties.Permissions
+                            .Where(r => r.Actions.Contains("Microsoft.Authorization/*"))
+                            .Any();
+                        bool allAuthPermissionBlocked = roleDefinition.Properties.Permissions
+                            .Where(r => r.NotActions.Contains("Microsoft.Authorization/*"))
+                            .Any();
+                        bool deleteAuthPermissionBlocked = roleDefinition.Properties.Permissions
+                            .Where(r => r.NotActions.Contains("Microsoft.Authorization/*/Delete"))
+                            .Any();
+                        bool writeAuthPermissionBlocked = roleDefinition.Properties.Permissions
+                            .Where(r => r.NotActions.Contains("Microsoft.Authorization/*/Write"))
+                            .Any();
+
+                        if (
+                            effectiveRole.Name == "Owner"
+                            || (
+                                hasFullAuthPermission
+                                && (!allAuthPermissionBlocked || !deleteAuthPermissionBlocked || !writeAuthPermissionBlocked)
+                            )
+                        )
+                        {
+                            effectiveRole.CanManageLocks = true;
+                        }
+
+                        subscriptionRoles.Add(effectiveRole);
+                    }
+                }
+            }
+
+            return subscriptionRoles;
         }
 
         private async Task DetermineRoles(AxeSettings settings, List<Resource> resources)

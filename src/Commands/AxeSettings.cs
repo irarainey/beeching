@@ -70,5 +70,7 @@ namespace Beeching.Commands
         public bool Version { get; set; }
 
         public string UserId { get; set; }
+
+        public string PrivilegedUserSubscriptionRole { get; set; }
     }
 }
