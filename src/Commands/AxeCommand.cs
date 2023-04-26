@@ -1,12 +1,11 @@
 using Beeching.Commands.Interfaces;
 using Beeching.Helpers;
-using Beeching.Models;
 using Spectre.Console;
 using Spectre.Console.Cli;
 
 namespace Beeching.Commands
 {
-    internal sealed class AxeCommand : AsyncCommand<AxeSettings>
+    internal class AxeCommand : AsyncCommand<AxeSettings>
     {
         private readonly IAzureAxe _azureAxe;
 
@@ -67,55 +66,22 @@ namespace Beeching.Commands
 
         public override async Task<int> ExecuteAsync(CommandContext context, AxeSettings settings)
         {
-            AnsiConsole.Markup ($"[green]=> Determining running user details[/]\n");
-            (string, string) userInformation = AzCliHelper.GetSignedInUser ();
+            AnsiConsole.Markup($"[green]=> Determining running user details[/]\n");
+            (string, string) userInformation = AzCliHelper.GetSignedInUser();
             settings.UserId = userInformation.Item1;
-            AnsiConsole.Markup ($"[green]=> Running as user [white]{userInformation.Item2}[/] // [white]{userInformation.Item1}[/][/]\n");
+            AnsiConsole.Markup($"[green]=> Running as user [white]{userInformation.Item2}[/] // [white]{userInformation.Item1}[/][/]\n");
 
-            AnsiConsole.Markup ($"[green]=> Determining subscription details[/]\n");
-            settings.Subscription = GetSubscriptionId(settings);
-            string name = AzCliHelper.GetSubscriptionName (settings.Subscription.ToString());
+            AnsiConsole.Markup($"[green]=> Determining subscription details[/]\n");
+            settings.Subscription = AzCliHelper.GetSubscriptionId(settings);
+            string name = AzCliHelper.GetSubscriptionName(settings.Subscription.ToString());
             if (settings.Subscription == Guid.Empty)
             {
                 return -1;
             }
 
-            AnsiConsole.Markup ($"[green]=> Using subscription [white]{name}[/] // [white]{settings.Subscription}[/][/]\n");
+            AnsiConsole.Markup($"[green]=> Using subscription [white]{name}[/] // [white]{settings.Subscription}[/][/]\n");
 
             return await _azureAxe.AxeResources(settings);
-        }
-
-        private static Guid GetSubscriptionId(AxeSettings settings)
-        {
-            Guid subscriptionId = settings.Subscription;
-
-            if (subscriptionId == Guid.Empty)
-            {
-                try
-                {
-                    if (settings.Debug)
-                    {
-                        AnsiConsole.Markup(
-                            "[green]=> No subscription ID specified. Trying to retrieve the default subscription ID from Azure CLI[/]"
-                        );
-                    }
-
-                    subscriptionId = Guid.Parse(AzCliHelper.GetCurrentAzureSubscription());
-
-                    if (settings.Debug)
-                    {
-                        AnsiConsole.Markup($"[green]=> Default subscription ID retrieved from az cli: {subscriptionId}[/]");
-                    }
-                }
-                catch (Exception ex)
-                {
-                    AnsiConsole.WriteException(
-                        new ArgumentException("Missing subscription ID. Please specify a subscription ID or login to Azure CLI.", ex)
-                    );
-                }
-            }
-
-            return subscriptionId;
         }
     }
 }

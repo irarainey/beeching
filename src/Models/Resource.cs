@@ -2,7 +2,7 @@
 
 namespace Beeching.Models
 {
-    internal sealed class Resource
+    internal class Resource
     {
         [JsonPropertyName("id")]
         public string Id { get; set; }

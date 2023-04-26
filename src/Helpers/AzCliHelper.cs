@@ -1,4 +1,5 @@
-﻿using Beeching.Models;
+﻿using Beeching.Commands;
+using Spectre.Console;
 using System.Diagnostics;
 using System.Text.Json;
 
@@ -6,9 +7,9 @@ namespace Beeching.Helpers
 {
     internal static class AzCliHelper
     {
-        private static string _azCliExecutable = "az";
+        private static string _azCliExecutable = Constants.AzCliExecutable;
 
-        internal static string DetermineAzCliPath()
+        public static string DetermineAzCliPath()
         {
             using Process process = CreateProcess(
                 Environment.OSVersion.Platform == PlatformID.Win32NT ? "where" : "which",
@@ -28,7 +29,40 @@ namespace Beeching.Helpers
                 + (Environment.OSVersion.Platform == PlatformID.Win32NT && _azCliExecutable.EndsWith(".cmd") == false ? ".cmd" : "");
         }
 
-        internal static string GetCurrentAzureSubscription()
+        public static Guid GetSubscriptionId(AxeSettings settings)
+        {
+            Guid subscriptionId = settings.Subscription;
+
+            if (subscriptionId == Guid.Empty)
+            {
+                try
+                {
+                    if (settings.Debug)
+                    {
+                        AnsiConsole.Markup(
+                            "[green]=> No subscription ID specified. Trying to retrieve the default subscription ID from Azure CLI[/]"
+                        );
+                    }
+
+                    subscriptionId = Guid.Parse(GetCurrentAzureSubscription());
+
+                    if (settings.Debug)
+                    {
+                        AnsiConsole.Markup($"[green]=> Default subscription ID retrieved from az cli: {subscriptionId}[/]");
+                    }
+                }
+                catch (Exception ex)
+                {
+                    AnsiConsole.WriteException(
+                        new ArgumentException("Missing subscription ID. Please specify a subscription ID or login to Azure CLI.", ex)
+                    );
+                }
+            }
+
+            return subscriptionId;
+        }
+
+        public static string GetCurrentAzureSubscription()
         {
             string azCliExecutable = DetermineAzCliPath();
             using Process process = CreateProcess(azCliExecutable, "account show");
@@ -57,13 +91,13 @@ namespace Beeching.Helpers
             }
         }
 
-        internal static string GetSubscriptionName(string subscriptionId)
+        public static string GetSubscriptionName(string subscriptionId)
         {
             string azCliExecutable = DetermineAzCliPath();
 
             using Process process = CreateProcess(
                 azCliExecutable,
-                $"rest --uri https://management.azure.com/subscriptions/{subscriptionId}?api-version=2020-01-01"
+                $"rest --uri {Constants.ArmBaseUrl}/subscriptions/{subscriptionId}?api-version=2020-01-01"
             );
             process.Start();
             string processOuput = process.StandardOutput.ReadToEnd();
@@ -83,7 +117,7 @@ namespace Beeching.Helpers
             return subscriptionName;
         }
 
-        internal static (string, string) GetSignedInUser()
+        public static (string, string) GetSignedInUser()
         {
             (string, string) result = ("", "");
             string azCliExecutable = DetermineAzCliPath();
@@ -120,7 +154,7 @@ namespace Beeching.Helpers
             else
             {
                 string error = process.StandardError.ReadToEnd();
-                throw new Exception($"Error executing '{azCliExecutable} ad signed-in-user show': {error}");
+                throw new Exception($"Error executing '{Constants.AzCliExecutable} ad signed-in-user show': {error}");
             }
         }
 

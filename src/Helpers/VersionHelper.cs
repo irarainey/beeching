@@ -1,16 +1,14 @@
 ﻿using Beeching.Commands;
 using NuGet.Common;
-using NuGet.Configuration;
 using NuGet.Protocol;
 using NuGet.Protocol.Core.Types;
 using NuGet.Versioning;
-using System.Linq;
 
 namespace Beeching.Helpers
 {
     internal class VersionHelper
     {
-        internal static string GetVersion()
+        public static string GetVersion()
         {
             var version = typeof(AxeCommand).Assembly.GetName().Version;
             if (version != null)
@@ -23,36 +21,33 @@ namespace Beeching.Helpers
             }
         }
 
-        internal static async Task<string?> GetLatestVersionAsync()
+        public static async Task<string?> GetLatestVersionAsync()
         {
-            ILogger logger = NullLogger.Instance;
-            CancellationToken cancellationToken = CancellationToken.None;
-
             SourceCacheContext cache = new();
-            SourceRepository repository = Repository.Factory.GetCoreV3 ("https://api.nuget.org/v3/index.json");
-            FindPackageByIdResource resource = await repository.GetResourceAsync<FindPackageByIdResource> ();
-
-            IEnumerable<NuGetVersion> versions = await resource.GetAllVersionsAsync (
-                "beeching",
+            SourceRepository repository = Repository.Factory.GetCoreV3(Constants.NuGetBaseUrl);
+            FindPackageByIdResource resource = await repository.GetResourceAsync<FindPackageByIdResource>();
+            IEnumerable<NuGetVersion> versions = await resource.GetAllVersionsAsync(
+                Constants.Beeching,
                 cache,
-                logger,
-                cancellationToken);
+                NullLogger.Instance,
+                CancellationToken.None
+            );
 
             return versions.LastOrDefault()?.ToString();
         }
 
-        internal static bool IsUpdateAvailable(string installedVersion, string latestVersion)
+        public static bool IsUpdateAvailable(string installedVersion, string latestVersion)
         {
-            string[] parts = installedVersion.Split ('.');
-            int major = int.Parse (parts[0]);
-            int minor = int.Parse (parts[1]);
-            int patch = int.Parse (parts[2]);
+            string[] parts = installedVersion.Split('.');
+            int major = int.Parse(parts[0]);
+            int minor = int.Parse(parts[1]);
+            int patch = int.Parse(parts[2]);
             int installedVersionNumber = major * 10000 + minor * 100 + patch;
 
-            parts = latestVersion.Split ('.');
-            major = int.Parse (parts[0]);
-            minor = int.Parse (parts[1]);
-            patch = int.Parse (parts[2]);
+            parts = latestVersion.Split('.');
+            major = int.Parse(parts[0]);
+            minor = int.Parse(parts[1]);
+            patch = int.Parse(parts[2]);
             int latestVersionNumber = major * 10000 + minor * 100 + patch;
 
             return latestVersionNumber > installedVersionNumber;

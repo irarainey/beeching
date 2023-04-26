@@ -2,7 +2,7 @@ using Spectre.Console.Cli;
 
 namespace Beeching.Infrastructure
 {
-    internal sealed class TypeResolver : ITypeResolver, IDisposable
+    internal class TypeResolver : ITypeResolver, IDisposable
     {
         private readonly IServiceProvider _provider;
 

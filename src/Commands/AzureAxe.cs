@@ -6,18 +6,16 @@ using Polly;
 using Spectre.Console;
 using System.Net.Http.Headers;
 using System.Text;
-using System.Text.Json;
-using System.Threading.Tasks.Sources;
 
 namespace Beeching.Commands
 {
-    internal sealed class AzureAxe : IAzureAxe
+    internal class AzureAxe : IAzureAxe
     {
         private readonly HttpClient _client;
 
         public AzureAxe(IHttpClientFactory httpClientFactory)
         {
-            _client = httpClientFactory.CreateClient("AzApi");
+            _client = httpClientFactory.CreateClient("ArmApi");
         }
 
         public async Task<int> AxeResources(AxeSettings settings)

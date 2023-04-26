@@ -1,5 +1,3 @@
-using Spectre.Console;
-
 namespace Beeching.Commands.Interfaces
 {
     internal interface IAzureAxe

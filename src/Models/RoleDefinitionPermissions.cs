@@ -2,7 +2,7 @@
 
 namespace Beeching.Models
 {
-    public class RoleDefinitionPermission
+    internal class RoleDefinitionPermission
     {
         [JsonPropertyName("actions")]
         public List<string> Actions { get; set; }

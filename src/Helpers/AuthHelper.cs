@@ -6,7 +6,7 @@ namespace Beeching.Helpers
 {
     internal static class AuthHelper
     {
-        internal static async Task<string> GetAccessToken(bool debug)
+        public static async Task<string> GetAccessToken(bool debug)
         {
             var tokenCredential = new ChainedTokenCredential(new AzureCliCredential(), new DefaultAzureCredential());
 
@@ -15,7 +15,7 @@ namespace Beeching.Helpers
                 AnsiConsole.WriteLine($"=> Using token credential: {tokenCredential.GetType().Name} to fetch a token.");
             }
 
-            var token = await tokenCredential.GetTokenAsync(new TokenRequestContext(new[] { $"https://management.azure.com/.default" }));
+            var token = await tokenCredential.GetTokenAsync(new TokenRequestContext(new[] { $"{Constants.ArmBaseUrl}.default" }));
 
             if (debug)
             {

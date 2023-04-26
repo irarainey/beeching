@@ -2,7 +2,7 @@
 
 namespace Beeching.Models
 {
-    internal sealed class ResourceLockProperties
+    internal class ResourceLockProperties
     {
         [JsonPropertyName ("level")]
         public string Level { get; set; }

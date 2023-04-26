@@ -3,7 +3,7 @@ using Spectre.Console.Cli;
 
 namespace Beeching.Infrastructure
 {
-    internal sealed class TypeRegistrar : ITypeRegistrar
+    internal class TypeRegistrar : ITypeRegistrar
     {
         private readonly IServiceCollection _builder;
 
