@@ -18,9 +18,9 @@ registrations
             client.DefaultRequestHeaders.Add("Accept", "application/json");
         }
     )
-    .AddPolicyHandler(AzureAxe.GetRetryAfterPolicy());
+    .AddPolicyHandler(Axe.GetRetryAfterPolicy());
 
-registrations.AddTransient<IAzureAxe, AzureAxe>();
+registrations.AddTransient<IAxe, Axe>();
 
 var registrar = new TypeRegistrar(registrations);
 

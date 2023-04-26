@@ -7,11 +7,11 @@ namespace Beeching.Commands
 {
     internal class AxeCommand : AsyncCommand<AxeSettings>
     {
-        private readonly IAzureAxe _azureAxe;
+        private readonly IAxe _axe;
 
-        public AxeCommand(IAzureAxe azureAxe)
+        public AxeCommand(IAxe axe)
         {
-            _azureAxe = azureAxe;
+            _axe = axe;
         }
 
         public override ValidationResult Validate(CommandContext context, AxeSettings settings)
@@ -67,21 +67,24 @@ namespace Beeching.Commands
         public override async Task<int> ExecuteAsync(CommandContext context, AxeSettings settings)
         {
             AnsiConsole.Markup($"[green]=> Determining running user details[/]\n");
+
             (string, string) userInformation = AzCliHelper.GetSignedInUser();
             settings.UserId = userInformation.Item1;
-            AnsiConsole.Markup($"[green]=> Running as user [white]{userInformation.Item2}[/] // [white]{userInformation.Item1}[/][/]\n");
 
+            AnsiConsole.Markup($"[green]=> Running as user [white]{userInformation.Item2}[/] // [white]{userInformation.Item1}[/][/]\n");
             AnsiConsole.Markup($"[green]=> Determining subscription details[/]\n");
+
             settings.Subscription = AzCliHelper.GetSubscriptionId(settings);
-            string name = AzCliHelper.GetSubscriptionName(settings.Subscription.ToString());
             if (settings.Subscription == Guid.Empty)
             {
                 return -1;
             }
 
+            string name = AzCliHelper.GetSubscriptionName(settings.Subscription.ToString());
+
             AnsiConsole.Markup($"[green]=> Using subscription [white]{name}[/] // [white]{settings.Subscription}[/][/]\n");
 
-            return await _azureAxe.AxeResources(settings);
+            return await _axe.AxeResources(settings);
         }
     }
 }

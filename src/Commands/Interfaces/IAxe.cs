@@ -1,6 +1,6 @@
 namespace Beeching.Commands.Interfaces
 {
-    internal interface IAzureAxe
+    internal interface IAxe
     {
         Task<int> AxeResources(AxeSettings settings);
     }

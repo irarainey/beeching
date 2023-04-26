@@ -9,11 +9,11 @@ using System.Text;
 
 namespace Beeching.Commands
 {
-    internal class AzureAxe : IAzureAxe
+    internal class Axe : IAxe
     {
         private readonly HttpClient _client;
 
-        public AzureAxe(IHttpClientFactory httpClientFactory)
+        public Axe(IHttpClientFactory httpClientFactory)
         {
             _client = httpClientFactory.CreateClient("ArmApi");
         }
