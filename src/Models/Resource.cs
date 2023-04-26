@@ -31,7 +31,7 @@ namespace Beeching.Models
 
         public List<ResourceLock> ResourceLocks { get; set; }
 
-        public List<RoleDefinition> Roles { get; set; }
+        public List<EffectiveRole> Roles { get; set; }
 
         public Resource()
         {

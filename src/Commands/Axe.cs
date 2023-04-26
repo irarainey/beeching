@@ -5,6 +5,7 @@ using Newtonsoft.Json;
 using Polly;
 using Spectre.Console;
 using System.Net.Http.Headers;
+using System.Net.Sockets;
 using System.Text;
 
 namespace Beeching.Commands
@@ -50,7 +51,7 @@ namespace Beeching.Commands
             {
                 string primaryRole = subscriptionRoles.OrderBy(r => r.Priority).First().Name;
                 settings.PrivilegedUserSubscriptionRole = primaryRole;
-                AnsiConsole.Markup($"[green]=> Subscription [white]{settings.PrivilegedUserSubscriptionRole}[/] role found[/]\n");
+                AnsiConsole.Markup($"[green]=> Role [white]{settings.PrivilegedUserSubscriptionRole}[/] found on subscription[/]\n");
             }
             else
             {
@@ -78,33 +79,42 @@ namespace Beeching.Commands
             {
                 foreach (var resource in resourcesToAxe)
                 {
-                    //if (resource.Roles.Where(r => r.Properties.RoleName == "Owner").Any())
-                    //{
-                    //    AnsiConsole.Markup($"[green]=> Role [white]Owner[/] found on resource [white]{resource.OutputMessage}[/][/]\n");
-                    //}
-                    //else if (resource.Roles.Where(r => r.Properties.RoleName == "Contributor").Any())
-                    //{
-                    //    resource.Skip = resource.IsLocked == true ? true : false;
-                    //    string skipMessage =
-                    //        resource.Skip == true ? " so will not be able to remove any locks - [white]SKIPPING[/]" : string.Empty;
-                    //    string lockedState = resource.IsLocked == true ? "[red]LOCKED[/] " : string.Empty;
-                    //    AnsiConsole.Markup(
-                    //        $"[green]=> Role [white]Contributor[/] found on {lockedState}resource [white]{resource.OutputMessage}[/]{skipMessage}[/]\n"
-                    //    );
-                    //}
-                    //else
-                    //{
-                    //    var role = resource.Roles.FirstOrDefault()?.Properties.RoleName;
-                    //    AnsiConsole.Markup(
-                    //        $"[green]=> Role [white]{role}[/] found on resource [white]{resource.OutputMessage}[/] so deletion will most likely fail but we can give it a go[/]\n"
-                    //    );
-                    //}
+                    // Determine our primary role for the resource
+                    string primaryRole = string.Empty;
+                    if (resource.Roles.Count > 0)
+                    {
+                        primaryRole = resource.Roles.OrderBy(r => r.Priority).First().Name;
+                    }
+
+                    // Determine if we can manage locks on the resource
+                    bool canManageLocks =
+                        subscriptionRoles.Where(r => r.CanManageLocks == true).Any()
+                        || resource.Roles.Where(r => r.CanManageLocks == true).Any();
+
+                    if (!string.IsNullOrEmpty(primaryRole))
+                    {
+                        AnsiConsole.Markup(
+                            $"[green]=> Role [white]{primaryRole}[/] found on resource [white]{resource.OutputMessage}[/][/]\n"
+                        );
+                    }
+                    else
+                    {
+                        AnsiConsole.Markup($"[green]=> No roles found on resource [white]{resource.OutputMessage}[/][/]\n");
+                    }
+
+                    resource.Skip = resource.IsLocked == true && canManageLocks == false ? true : false;
+                    string skipMessage =
+                        resource.Skip == true ? " so will not be able to remove any locks - [white]SKIPPING[/]" : string.Empty;
+                    string lockedState = resource.IsLocked == true ? "[red]LOCKED[/] " : string.Empty;
 
                     if (resource.Skip == false)
                     {
                         string locked = resource.IsLocked == true ? "LOCKED " : string.Empty;
                         string group = settings.ResourceGroups == true ? " and [red]ALL[/] resources within it" : string.Empty;
                         AnsiConsole.Markup($"[green]=> [red]WILL AXE {locked}[/]resource [white]{resource.OutputMessage}[/]{group}[/]\n");
+                    } else
+                    {
+                        AnsiConsole.Markup($"[green]=> Found [red]LOCKED[/] resource [white]{resource.OutputMessage}[/] but you do not have permission to remove locks - [white]SKIPPING[/][/]\n");
                     }
                 }
             }
@@ -560,11 +570,8 @@ namespace Beeching.Commands
                             .Any();
 
                         if (
-                            effectiveRole.Name == "Owner"
-                            || (
-                                hasFullAuthPermission
-                                && (!allAuthPermissionBlocked || !deleteAuthPermissionBlocked || !writeAuthPermissionBlocked)
-                            )
+                            (hasFullPermission || hasFullAuthPermission)
+                            && (!allAuthPermissionBlocked && !deleteAuthPermissionBlocked && !writeAuthPermissionBlocked)
                         )
                         {
                             effectiveRole.CanManageLocks = true;
@@ -596,12 +603,58 @@ namespace Beeching.Commands
                         foreach (var role in roles)
                         {
                             RoleDefinition roleDefinition = await GetRoleDefinition(role.properties.roleDefinitionId.ToString());
-                            if (roleDefinition.Properties.RoleName == "User Access Administrator")
+
+                            if (role.properties.scope == $"/subscriptions/{settings.Subscription}")
                             {
                                 continue;
                             }
 
-                            resource.Roles.Add(roleDefinition);
+                            EffectiveRole effectiveRole =
+                                new()
+                                {
+                                    RoleDefinitionId = roleDefinition.Name,
+                                    Scope = role.properties.scope,
+                                    ScopeType = "Resource",
+                                    Name = roleDefinition.Properties.RoleName,
+                                    Type = roleDefinition.Properties.Type
+                                };
+
+                            if (effectiveRole.Name == "Owner")
+                            {
+                                effectiveRole.Priority = 0;
+                            }
+                            else if (effectiveRole.Name == "Contributor")
+                            {
+                                effectiveRole.Priority = 1;
+                            }
+                            else
+                            {
+                                effectiveRole.Priority = 2;
+                            }
+
+                            bool hasFullPermission = roleDefinition.Properties.Permissions.Where(r => r.Actions.Contains("*")).Any();
+                            bool hasFullAuthPermission = roleDefinition.Properties.Permissions
+                                .Where(r => r.Actions.Contains("Microsoft.Authorization/*"))
+                                .Any();
+                            bool allAuthPermissionBlocked = roleDefinition.Properties.Permissions
+                                .Where(r => r.NotActions.Contains("Microsoft.Authorization/*"))
+                                .Any();
+                            bool deleteAuthPermissionBlocked = roleDefinition.Properties.Permissions
+                                .Where(r => r.NotActions.Contains("Microsoft.Authorization/*/Delete"))
+                                .Any();
+                            bool writeAuthPermissionBlocked = roleDefinition.Properties.Permissions
+                                .Where(r => r.NotActions.Contains("Microsoft.Authorization/*/Write"))
+                                .Any();
+
+                            if (
+                                (hasFullPermission || hasFullAuthPermission)
+                                && (!allAuthPermissionBlocked && !deleteAuthPermissionBlocked && !writeAuthPermissionBlocked)
+                            )
+                            {
+                                effectiveRole.CanManageLocks = true;
+                            }
+
+                            resource.Roles.Add(effectiveRole);
                         }
                     }
                 }
@@ -633,7 +686,7 @@ namespace Beeching.Commands
 
             if (settings.Force == true)
             {
-                AnsiConsole.Markup($"[green]=> Detected --force. Resource locks will be removed and reapplied where applicable[/]\n");
+                AnsiConsole.Markup($"[green]=> Detected --force. Resource locks will be removed and reapplied where possible[/]\n");
             }
 
             string locks = $"/subscriptions/{settings.Subscription}/providers/Microsoft.Authorization/locks?api-version=2016-09-01";
