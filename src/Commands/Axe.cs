@@ -51,8 +51,8 @@ namespace Beeching.Commands
                     else if (resource.Roles.Where(r => r.Properties.RoleName == "Contributor").Any())
                     {
                         resource.Skip = resource.IsLocked == true ? true : false;
-                        string skipMessage = resource.Skip == true ? " so will not be able to remove any locks - [white]SKIPPING[/]" : "";
-                        string lockedState = resource.IsLocked == true ? "[red]LOCKED[/] " : "";
+                        string skipMessage = resource.Skip == true ? " so will not be able to remove any locks - [white]SKIPPING[/]" : string.Empty;
+                        string lockedState = resource.IsLocked == true ? "[red]LOCKED[/] " : string.Empty;
                         AnsiConsole.Markup ($"[green]=> Role [white]Contributor[/] found on {lockedState}resource [white]{resource.OutputMessage}[/]{skipMessage}[/]\n");
                     }
                     else
@@ -63,8 +63,8 @@ namespace Beeching.Commands
 
                     if (resource.Skip == false)
                     {
-                        string locked = resource.IsLocked == true ? "LOCKED " : "";
-                        string group = settings.ResourceGroups == true ? " and [red]ALL[/] resources within it" : "";
+                        string locked = resource.IsLocked == true ? "LOCKED " : string.Empty;
+                        string group = settings.ResourceGroups == true ? " and [red]ALL[/] resources within it" : string.Empty;
                         AnsiConsole.Markup ($"[green]=> [red]WILL AXE {locked}[/]resource [white]{resource.OutputMessage}[/]{group}[/]\n");
                     }
                 }
@@ -168,7 +168,7 @@ namespace Beeching.Commands
                     continue;
                 }
 
-                string group = settings.ResourceGroups == true ? " and [red]ALL[/] resources within it" : "";
+                string group = settings.ResourceGroups == true ? " and [red]ALL[/] resources within it" : string.Empty;
 
                 // Output the details of the delete request
                 AnsiConsole.Markup($"[green]=> [red]AXING[/] [white]{resource.OutputMessage}[/]{group}[/]\n");

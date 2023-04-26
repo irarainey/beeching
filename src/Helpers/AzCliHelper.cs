@@ -26,7 +26,11 @@ namespace Beeching.Helpers
             }
 
             return _azCliExecutable
-                + (Environment.OSVersion.Platform == PlatformID.Win32NT && _azCliExecutable.EndsWith(".cmd") == false ? ".cmd" : "");
+                + (
+                    Environment.OSVersion.Platform == PlatformID.Win32NT && _azCliExecutable.EndsWith(".cmd") == false
+                        ? ".cmd"
+                        : string.Empty
+                );
         }
 
         public static Guid GetSubscriptionId(AxeSettings settings)
@@ -77,7 +81,7 @@ namespace Beeching.Helpers
                 JsonElement root = jsonOutput.RootElement;
                 if (root.TryGetProperty("id", out JsonElement idElement))
                 {
-                    return idElement.GetString() ?? "";
+                    return idElement.GetString() ?? string.Empty;
                 }
                 else
                 {
@@ -93,33 +97,35 @@ namespace Beeching.Helpers
 
         public static string GetSubscriptionName(string subscriptionId)
         {
+            return CallAzCliRest($"/subscriptions/{subscriptionId}?api-version=2020-01-01", "displayName");
+        }
+
+        public static string CallAzCliRest(string uri, string objectName)
+        {
             string azCliExecutable = DetermineAzCliPath();
 
-            using Process process = CreateProcess(
-                azCliExecutable,
-                $"rest --uri {Constants.ArmBaseUrl}/subscriptions/{subscriptionId}?api-version=2020-01-01"
-            );
+            using Process process = CreateProcess(azCliExecutable, $"rest --uri {Constants.ArmBaseUrl}{uri}");
             process.Start();
             string processOuput = process.StandardOutput.ReadToEnd();
             process.WaitForExit();
 
-            string subscriptionName = "";
+            string returnValue = string.Empty;
             if (process.ExitCode == 0)
             {
                 using var jsonOutput = JsonDocument.Parse(processOuput);
                 JsonElement root = jsonOutput.RootElement;
-                if (root.TryGetProperty("displayName", out JsonElement nameElement))
+                if (root.TryGetProperty(objectName, out JsonElement item))
                 {
-                    subscriptionName = nameElement.GetString() ?? "";
+                    returnValue = item.GetString() ?? string.Empty;
                 }
             }
 
-            return subscriptionName;
+            return returnValue;
         }
 
         public static (string, string) GetSignedInUser()
         {
-            (string, string) result = ("", "");
+            (string, string) result = (string.Empty, string.Empty);
             string azCliExecutable = DetermineAzCliPath();
             using Process process = CreateProcess(azCliExecutable, "ad signed-in-user show");
 
@@ -133,20 +139,20 @@ namespace Beeching.Helpers
                 JsonElement root = jsonOutput.RootElement;
                 if (root.TryGetProperty("id", out JsonElement idElement))
                 {
-                    result.Item1 = idElement.GetString() ?? "";
+                    result.Item1 = idElement.GetString() ?? string.Empty;
                 }
                 else
                 {
-                    result.Item1 = "";
+                    result.Item1 = string.Empty;
                 }
 
                 if (root.TryGetProperty("displayName", out JsonElement displayNameElement))
                 {
-                    result.Item2 = displayNameElement.GetString() ?? "";
+                    result.Item2 = displayNameElement.GetString() ?? string.Empty;
                 }
                 else
                 {
-                    result.Item2 = "";
+                    result.Item2 = string.Empty;
                 }
 
                 return result;
