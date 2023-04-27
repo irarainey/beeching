@@ -80,21 +80,12 @@ namespace Beeching.Commands
                 foreach (var resource in resourcesToAxe)
                 {
                     // Determine our primary role for the resource
-                    string primaryRole = string.Empty;
+                    string primaryResourceRole = string.Empty;
                     if (resource.Roles.Count > 0)
                     {
-                        primaryRole = resource.Roles.OrderBy(r => r.Priority).First().Name;
-                    }
-
-                    // Determine if we can manage locks on the resource
-                    bool canManageLocks =
-                        subscriptionRoles.Where(r => r.CanManageLocks == true).Any()
-                        || resource.Roles.Where(r => r.CanManageLocks == true).Any();
-
-                    if (!string.IsNullOrEmpty(primaryRole))
-                    {
+                        primaryResourceRole = resource.Roles.OrderBy(r => r.Priority).First().Name;
                         AnsiConsole.Markup(
-                            $"[green]=> Role [white]{primaryRole}[/] found on resource [white]{resource.OutputMessage}[/][/]\n"
+                            $"[green]=> Role [white]{primaryResourceRole}[/] found on resource [white]{resource.OutputMessage}[/][/]\n"
                         );
                     }
                     else
@@ -102,33 +93,45 @@ namespace Beeching.Commands
                         AnsiConsole.Markup($"[green]=> No roles found on resource [white]{resource.OutputMessage}[/][/]\n");
                     }
 
-                    resource.Skip = resource.IsLocked == true && canManageLocks == false ? true : false;
+                    // Determine if we can manage locks on the resource
+                    bool canManageLocks =
+                        subscriptionRoles.Where(r => r.CanManageLocks == true).Any()
+                        || resource.Roles.Where(r => r.CanManageLocks == true).Any();
+
+                    // Determine if we're skipping this resource because it's locked
+                    resource.Skip = resource.IsLocked == true && canManageLocks == false;
                     string skipMessage =
                         resource.Skip == true ? " so will not be able to remove any locks - [white]SKIPPING[/]" : string.Empty;
                     string lockedState = resource.IsLocked == true ? "[red]LOCKED[/] " : string.Empty;
 
-                    if (resource.Skip == false)
+                    // Are we skipping this resource because it's locked?
+                    if (resource.Skip == true)
+                    {
+                        AnsiConsole.Markup(
+                            $"[green]=> Found [red]LOCKED[/] resource [white]{resource.OutputMessage}[/] but you do not have permission to remove locks - [white]SKIPPING[/][/]\n"
+                        );
+                    }
+                    else
                     {
                         string locked = resource.IsLocked == true ? "LOCKED " : string.Empty;
                         string group = settings.ResourceGroups == true ? " and [red]ALL[/] resources within it" : string.Empty;
                         AnsiConsole.Markup($"[green]=> [red]WILL AXE {locked}[/]resource [white]{resource.OutputMessage}[/]{group}[/]\n");
-                    } else
-                    {
-                        AnsiConsole.Markup($"[green]=> Found [red]LOCKED[/] resource [white]{resource.OutputMessage}[/] but you do not have permission to remove locks - [white]SKIPPING[/][/]\n");
                     }
                 }
             }
 
+            // If we're running what-if then just drop out here
             if (settings.WhatIf)
             {
                 AnsiConsole.Markup($"[cyan]=> +++ WHAT-IF COMPLETE +++[/]\n");
                 return 0;
             }
 
+            // If we had some resources, but now we don't because they're locked then drop out here
             if (
                 (unlockedAxeCount == 0 && settings.Force == false)
                 || resourcesToAxe.Count == 0
-                || resourcesToAxe.Where(r => r.Skip == false).Count() == 0
+                || resourcesToAxe.Where(r => r.Skip == false).Any() == false
             )
             {
                 if (showedNoResources == false)
@@ -138,7 +141,7 @@ namespace Beeching.Commands
                 return 0;
             }
 
-            // If we want to skip confirmation then be my guest
+            // If you want to skip confirmation then go ahead - make my day, punk.
             if (!settings.SkipConfirmation)
             {
                 string title = $"\nAre you sure you want to axe these {resourcesToAxe.Count} resources? [red](This cannot be undone)[/]";
