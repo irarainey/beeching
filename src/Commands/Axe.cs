@@ -50,13 +50,18 @@ namespace Beeching.Commands
             if (subscriptionRoles.Count > 0)
             {
                 string primaryRole = subscriptionRoles.OrderBy(r => r.Priority).First().Name;
-                settings.PrivilegedUserSubscriptionRole = primaryRole;
-                AnsiConsole.Markup($"[green]=> Role [white]{settings.PrivilegedUserSubscriptionRole}[/] found on subscription[/]\n");
+                settings.SubscriptionRole = primaryRole;
+                settings.IsSubscriptionRolePrivileged = primaryRole == "Owner" || primaryRole == "Contributor";
+                AnsiConsole.Markup($"[green]=> Role [white]{settings.SubscriptionRole}[/] assigned on subscription which will be inherited by all resources[/]\n");
+                if (settings.IsSubscriptionRolePrivileged == false)
+                {
+                    AnsiConsole.Markup($"[green]=> No privileged subscription role assigned so axe may fail if resource specific role not assigned[/]\n");
+                }
             }
             else
             {
-                settings.PrivilegedUserSubscriptionRole = "None";
-                AnsiConsole.Markup($"[green]=> No subscription roles found[/]\n");
+                settings.SubscriptionRole = "None";
+                AnsiConsole.Markup($"[green]=> No subscription roles assigned[/]\n");
             }
 
             // Get the list of resources to axe based on the supplied options
@@ -81,16 +86,16 @@ namespace Beeching.Commands
                 {
                     // Determine our primary role for the resource
                     string primaryResourceRole = string.Empty;
-                    if (resource.Roles.Count > 0)
+                    if (resource.Roles.Any())
                     {
                         primaryResourceRole = resource.Roles.OrderBy(r => r.Priority).First().Name;
                         AnsiConsole.Markup(
-                            $"[green]=> Role [white]{primaryResourceRole}[/] found on resource [white]{resource.OutputMessage}[/][/]\n"
+                            $"[green]=> Role [white]{primaryResourceRole}[/] assigned on resource [white]{resource.OutputMessage}[/][/]\n"
                         );
                     }
                     else
                     {
-                        AnsiConsole.Markup($"[green]=> No roles found on resource [white]{resource.OutputMessage}[/][/]\n");
+                        AnsiConsole.Markup($"[green]=> No roles assigned on resource [white]{resource.OutputMessage}[/][/]\n");
                     }
 
                     // Determine if we can manage locks on the resource
@@ -111,11 +116,20 @@ namespace Beeching.Commands
                             $"[green]=> Found [red]LOCKED[/] resource [white]{resource.OutputMessage}[/] but you do not have permission to remove locks - [white]SKIPPING[/][/]\n"
                         );
                     }
+                    else if(resource.IsLocked == true && settings.Force == false)
+                    {
+                        resource.Skip = true;
+                        AnsiConsole.Markup(
+                            $"[green]=> Found [red]LOCKED[/] resource [white]{resource.OutputMessage}[/] which cannot be axed - [white]SKIPPING[/][/]\n"
+                        );
+                    }
                     else
                     {
+                        bool axeFailWarning = settings.IsSubscriptionRolePrivileged == false && resource.Roles.Any() == false;
                         string locked = resource.IsLocked == true ? "LOCKED " : string.Empty;
                         string group = settings.ResourceGroups == true ? " and [red]ALL[/] resources within it" : string.Empty;
-                        AnsiConsole.Markup($"[green]=> [red]WILL AXE {locked}[/]resource [white]{resource.OutputMessage}[/]{group}[/]\n");
+                        string axeFail = axeFailWarning == true ? " [red](may fail due to role)[/]" : string.Empty;
+                        AnsiConsole.Markup($"[green]=> [red]WILL AXE {locked}[/]resource [white]{resource.OutputMessage}[/]{group}{axeFail}[/]\n");
                     }
                 }
             }
@@ -142,9 +156,9 @@ namespace Beeching.Commands
             }
 
             // If you want to skip confirmation then go ahead - make my day, punk.
-            if (!settings.SkipConfirmation)
+            if (settings.SkipConfirmation == false)
             {
-                string title = $"\nAre you sure you want to axe these {resourcesToAxe.Count} resources? [red](This cannot be undone)[/]";
+                string title = $"\nAre you sure you want to axe these {resourcesToAxe.Where(r => r.Skip == false).Count()} resources? [red](This cannot be undone)[/]";
                 if (resourcesToAxe.Count == 1)
                 {
                     title = "\nAre you sure you want to axe this resource? [red](This cannot be undone)[/]";
@@ -157,6 +171,9 @@ namespace Beeching.Commands
                     AnsiConsole.Markup($"[green]=> Resource axing abandoned[/]\n\n");
                     return 0;
                 }
+            } else
+            {
+                AnsiConsole.Markup($"[green]=> Detected --yes. Skipping confirmation[/]\n\n");
             }
 
             int retryCount = 1;
@@ -172,7 +189,7 @@ namespace Beeching.Commands
                 }
 
                 AnsiConsole.Markup(
-                    $"[green]=>[/] [red]Probably a dependency issue. Pausing for {settings.RetryPause} seconds and will retry. Attempt {retryCount} of {settings.MaxRetries}[/]\n\n"
+                    $"[green]=>[/] [red]Probably a dependency issue. Pausing for {settings.RetryPause} seconds and will retry. Attempt {retryCount} of {settings.MaxRetries}[/]\n"
                 );
                 await Task.Delay(settings.RetryPause * 1000);
                 resourcesToAxe = axeStatus.AxeList;

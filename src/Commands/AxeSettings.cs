@@ -71,6 +71,8 @@ namespace Beeching.Commands
 
         public string UserId { get; set; }
 
-        public string PrivilegedUserSubscriptionRole { get; set; }
+        public string SubscriptionRole { get; set; }
+
+        public bool IsSubscriptionRolePrivileged { get; set; }
     }
 }
