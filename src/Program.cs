@@ -30,10 +30,6 @@ app.Configure(config =>
 {
     config.SetApplicationName(Constants.Beeching);
     config.AddCommand<AxeCommand>("axe").WithDescription("The mighty axe that culls the resources.");
-
-#if DEBUG
-    config.PropagateExceptions();
-#endif
 });
 
 string installedVersion = VersionHelper.GetVersion();
