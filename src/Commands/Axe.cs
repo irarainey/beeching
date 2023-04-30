@@ -2,6 +2,7 @@ using Beeching.Commands.Interfaces;
 using Beeching.Helpers;
 using Beeching.Models;
 using Newtonsoft.Json;
+using NuGet.Configuration;
 using Polly;
 using Spectre.Console;
 using System.Net.Http.Headers;
@@ -52,10 +53,14 @@ namespace Beeching.Commands
                 string primaryRole = subscriptionRoles.OrderBy(r => r.Priority).First().Name;
                 settings.SubscriptionRole = primaryRole;
                 settings.IsSubscriptionRolePrivileged = primaryRole == "Owner" || primaryRole == "Contributor";
-                AnsiConsole.Markup($"[green]=> Role [white]{settings.SubscriptionRole}[/] assigned on subscription which will be inherited by all resources[/]\n");
+                AnsiConsole.Markup(
+                    $"[green]=> Role [white]{settings.SubscriptionRole}[/] assigned on subscription which will be inherited by all resources[/]\n"
+                );
                 if (settings.IsSubscriptionRolePrivileged == false)
                 {
-                    AnsiConsole.Markup($"[green]=> No privileged subscription role assigned so axe may fail if resource specific role not assigned[/]\n");
+                    AnsiConsole.Markup(
+                        $"[green]=> No privileged subscription role assigned so axe may fail if resource specific role not assigned[/]\n"
+                    );
                 }
             }
             else
@@ -98,13 +103,9 @@ namespace Beeching.Commands
                         AnsiConsole.Markup($"[green]=> No roles assigned on resource [white]{resource.OutputMessage}[/][/]\n");
                     }
 
-                    // Determine if we can manage locks on the resource
-                    bool canManageLocks =
-                        subscriptionRoles.Where(r => r.CanManageLocks == true).Any()
-                        || resource.Roles.Where(r => r.CanManageLocks == true).Any();
-
                     // Determine if we're skipping this resource because it's locked
-                    resource.Skip = resource.IsLocked == true && canManageLocks == false;
+                    resource.Skip = resource.IsLocked == true && Axe.ShouldSkipIfLocked(settings, resource);
+
                     string skipMessage =
                         resource.Skip == true ? " so will not be able to remove any locks - [white]SKIPPING[/]" : string.Empty;
                     string lockedState = resource.IsLocked == true ? "[red]LOCKED[/] " : string.Empty;
@@ -116,7 +117,7 @@ namespace Beeching.Commands
                             $"[green]=> Found [red]LOCKED[/] resource [white]{resource.OutputMessage}[/] but you do not have permission to remove locks - [white]SKIPPING[/][/]\n"
                         );
                     }
-                    else if(resource.IsLocked == true && settings.Force == false)
+                    else if (resource.IsLocked == true && settings.Force == false)
                     {
                         resource.Skip = true;
                         AnsiConsole.Markup(
@@ -129,7 +130,10 @@ namespace Beeching.Commands
                         string locked = resource.IsLocked == true ? "LOCKED " : string.Empty;
                         string group = settings.ResourceGroups == true ? " and [red]ALL[/] resources within it" : string.Empty;
                         string axeFail = axeFailWarning == true ? " [red](may fail due to role)[/]" : string.Empty;
-                        AnsiConsole.Markup($"[green]=> [red]WILL AXE {locked}[/]resource [white]{resource.OutputMessage}[/]{group}{axeFail}[/]\n");
+                        string axeAttemptMessage = axeFailWarning == true ? "ATTEMPT TO " : string.Empty;
+                        AnsiConsole.Markup(
+                            $"[green]=> [red]WILL {axeAttemptMessage}AXE {locked}[/]resource [white]{resource.OutputMessage}[/]{group}{axeFail}[/]\n"
+                        );
                     }
                 }
             }
@@ -158,7 +162,8 @@ namespace Beeching.Commands
             // If you want to skip confirmation then go ahead - make my day, punk.
             if (settings.SkipConfirmation == false)
             {
-                string title = $"\nAre you sure you want to axe these {resourcesToAxe.Where(r => r.Skip == false).Count()} resources? [red](This cannot be undone)[/]";
+                string title =
+                    $"\nAre you sure you want to axe these {resourcesToAxe.Where(r => r.Skip == false).Count()} resources? [red](This cannot be undone)[/]";
                 if (resourcesToAxe.Count == 1)
                 {
                     title = "\nAre you sure you want to axe this resource? [red](This cannot be undone)[/]";
@@ -171,7 +176,8 @@ namespace Beeching.Commands
                     AnsiConsole.Markup($"[green]=> Resource axing abandoned[/]\n\n");
                     return 0;
                 }
-            } else
+            }
+            else
             {
                 AnsiConsole.Markup($"[green]=> Detected --yes. Skipping confirmation[/]\n\n");
             }
@@ -264,7 +270,7 @@ namespace Beeching.Commands
                     if (responseContent.Contains("Please remove the lock and try again"))
                     {
                         AnsiConsole.Markup(
-                            $"[green]=>[/] [red]Axe failed because the resource is locked. Remove the lock and try again[/]\n"
+                            $"[green]=>[/] [red]Axe failed because the resource is [red]LOCKED[/]. Remove the lock and try again[/]\n"
                         );
                         axeStatus.Status = false;
                         continue;
@@ -557,7 +563,7 @@ namespace Beeching.Commands
                             {
                                 RoleDefinitionId = roleDefinition.Name,
                                 Scope = role.properties.scope,
-                                ScopeType = "Subscription",
+                                ScopeType = "subscription",
                                 Name = roleDefinition.Properties.RoleName,
                                 Type = roleDefinition.Properties.Type
                             };
@@ -629,12 +635,14 @@ namespace Beeching.Commands
                                 continue;
                             }
 
+                            string[] scopeSections = role.properties.scope.ToString().Split('/');
+
                             EffectiveRole effectiveRole =
                                 new()
                                 {
                                     RoleDefinitionId = roleDefinition.Name,
                                     Scope = role.properties.scope,
-                                    ScopeType = "Resource",
+                                    ScopeType = scopeSections.Length > 5 ? "resource" : "resource group",
                                     Name = roleDefinition.Properties.RoleName,
                                     Type = roleDefinition.Properties.Type
                                 };
@@ -755,12 +763,68 @@ namespace Beeching.Commands
                         if (settings.Force == false && resource.IsLocked == true)
                         {
                             AnsiConsole.Markup(
-                                $"[green]=> Found resource {resource.OutputMessage} but it's locked and cannot be deleted[/]\n"
+                                $"[green]=> Found [red]LOCKED[/] resource {resource.OutputMessage} which cannot be deleted[/] - [white]SKIPPING[/]\n"
                             );
                         }
                     }
                 }
             }
+        }
+
+        private static bool ShouldSkipIfLocked(AxeSettings settings, Resource resource)
+        {
+            // Find out what kind of powers we have
+            bool hasSubscriptionLockPowers = settings.SubscriptionRole == "Owner";
+            bool hasResourceLockPowers = resource.Roles.Where(r => r.CanManageLocks == true).Any();
+
+            // If we don't have subscription lock powers and we don't have resource lock powers then we're not good
+            if (hasSubscriptionLockPowers == false && hasResourceLockPowers == false)
+            {
+                return true;
+            }
+
+            // If we have subscription lock powers, we can remove any lock so we're good
+            if (hasSubscriptionLockPowers == true)
+            {
+                return false;
+            }
+
+            // Find out if we have subscription level locks
+            bool hasSubscriptionLocks = resource.ResourceLocks.Where(r => r.Scope == "subscription").Any();
+
+            // We don't have subscription lock powers so if the locks are at the subscription level then we're not good
+            if (hasSubscriptionLocks == true)
+            {
+                return true;
+            }
+
+            // We do have resource lock powers and we're dealing with resource groups so we're good
+            if (settings.ResourceGroups == true)
+            {
+                return false;
+            }
+
+            // Find out what kind of locks we have at the group and resource level
+            bool hasGroupLocks = resource.ResourceLocks.Where(r => r.Scope == "resource group").Any();
+            bool hasResourceLocks = resource.ResourceLocks.Where(r => r.Scope == "resource").Any();
+
+            // We have resource lock powers and the resource is locked at the resource level so we're good
+            if (hasGroupLocks == false)
+            {
+                return false;
+            }
+
+            // Find out if the role scope is for the resource group
+            bool hasOwnerOnGroup = resource.Roles.Where(r => r.ScopeType == "resource group" && r.Name == "Owner").Any();
+
+            // We have resource lock powers and the resource is locked at the group level
+            if (hasGroupLocks == true && hasOwnerOnGroup == true)
+            {
+                return false;
+            }
+
+            // Has owner on resource but lock is on group lands here so we're not good
+            return true;
         }
 
         public static IAsyncPolicy<HttpResponseMessage> GetRetryAfterPolicy()
