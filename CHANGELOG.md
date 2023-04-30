@@ -1,8 +1,9 @@
 ## 0.5.0
 
 - Added functionality to determine role assignments and detect if you will be able to axe resources or remove locks
-- Added a check to notify when a new version is available
+- Added a check to notify when a new version is available with an option to ignore if required
 - Added display of subscription name with subscription id
+- Added display of effective role determined for each resource found
 
 ## 0.4.0
 
