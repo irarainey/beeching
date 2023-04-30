@@ -15,7 +15,7 @@ namespace Beeching.Commands
         public string Name { get; set; }
 
         [CommandOption("-t|--tag")]
-        [Description("The tag value of the resources to axe. Key and value must be supplied as a single string in the format key:value")]
+        [Description("The tag key and value of the resources to axe. Must be supplied as a single string in the format key:value")]
         [DefaultValue("")]
         public string Tag { get; set; }
 
