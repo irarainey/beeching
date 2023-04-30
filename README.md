@@ -149,20 +149,21 @@ USAGE:
     beeching [OPTIONS]
 
 OPTIONS:
-    -h, --help                Prints help information
-    -s, --subscription        The subscription id to use
-    -n, --name                The name (or partial name) of the resources to axe
-    -t, --tag                 The tag value of the resources to axe
-    -r, --resource-types      Restict the types of the resources to axe
-    -e, --exclude             The names of resources to exclude from the axe
+    -h, --help                Prints this help information
+    -s, --subscription        The subscription id to use. If not specified, the active Azure CLI subscription will be used
+    -n, --name                The name (or partial name) of the resources to axe. Multiple values can be specified separated by :
+    -t, --tag                 The tag value of the resources to axe. Key and value must be supplied as a single string in the format key:value
+    -r, --resource-types      Restrict the types of the resources to axe. Multiple values can be specified separated by :
+    -e, --exclude             The name of resources to exclude from the axe. Multiple values can be specified separated by :
     -g, --resource-groups     Axe resource groups and contents rather than individual resource types
     -f, --force               Force the axe to delete the resources if locked
     -y, --yes                 Skip the confirmation prompt
-    -w, --what-if             Show which resources would face the axe without actually deleting them
+    -w, --what-if             Show which resources would face the axe without actually culling anything
     -m, --max-retry           Sets the maximum amount to retry attempts when axe fails (default = 6)
     -p, --retry-pause         Sets the pause in seconds for the retry attempts (default = 10)
     -d, --debug               Increase logging verbosity to show all debug logs
     -v, --version             Reports the application version
+    -i, --ignore-update       Do not check for update on startup
 
 COMMANDS:
     axe    The mighty axe that culls the resources

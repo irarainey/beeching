@@ -193,7 +193,7 @@ namespace Beeching.Commands
                 }
 
                 AnsiConsole.Markup(
-                    $"[green]=>[/] [red]Probably a dependency issue. Pausing for {settings.RetryPause} seconds and will retry. Attempt {retryCount} of {settings.MaxRetries}[/]\n"
+                    $"[green]=>[/] [red]Possibly a dependency issue. Pausing for {settings.RetryPause} seconds and will retry. Attempt {retryCount} of {settings.MaxRetries}[/]\n"
                 );
                 await Task.Delay(settings.RetryPause * 1000);
                 resourcesToAxe = axeStatus.AxeList;
@@ -228,22 +228,46 @@ namespace Beeching.Commands
                 {
                     foreach (var resourceLock in resource.ResourceLocks)
                     {
-                        AnsiConsole.Markup(
-                            $"[green]=> Removing {resourceLock.Scope} lock [white]{resourceLock.Name}[/] for [white]{resource.OutputMessage}[/][/]\n"
-                        );
-                        var lockResponse = await _client.DeleteAsync(
-                            new Uri($"{resourceLock.Id}?api-version=2016-09-01", UriKind.Relative)
-                        );
-                        if (!lockResponse.IsSuccessStatusCode)
+                        int retryCount = 1;
+                        bool lockRemoved = false;
+                        while (retryCount < (settings.MaxRetries + 1))
+                        {
+                            AnsiConsole.Markup(
+                                $"[green]=> Attempting to remove {resourceLock.Scope} lock [white]{resourceLock.Name}[/] for [white]{resource.OutputMessage}[/][/]\n"
+                            );
+                            var lockResponse = await _client.DeleteAsync(
+                                new Uri($"{resourceLock.Id}?api-version=2016-09-01", UriKind.Relative)
+                            );
+
+                            if (lockResponse.IsSuccessStatusCode == true)
+                            {
+                                lockRemoved = true;
+                                break;
+                            }
+
+                            AnsiConsole.Markup(
+                                $"[green]=>[/] [red]Failed to remove lock for {resource.OutputMessage}[/]. Pausing for {settings.RetryPause} seconds and will retry. Attempt {retryCount} of {settings.MaxRetries}[/]\n"
+                            );
+                            await Task.Delay(settings.RetryPause * 1000);
+                            retryCount++;
+                        }
+
+                        if (retryCount < (settings.MaxRetries + 1) && lockRemoved == true)
+                        {
+                            AnsiConsole.Markup($"[green]=> Lock removed successfully[/]\n");
+                        }
+                        else
                         {
                             AnsiConsole.Markup($"[green]=>[/] [red]Failed to remove lock for {resource.OutputMessage}[/] - SKIPPING\n");
                             skipAxe = true;
+                            axeStatus.Status = false;
+                            break;
                         }
                     }
                 }
 
                 // If we can't remove the lock then skip the axe
-                if (skipAxe)
+                if (skipAxe == true)
                 {
                     continue;
                 }
@@ -276,6 +300,12 @@ namespace Beeching.Commands
                     else if (response.StatusCode.ToString() == "Forbidden")
                     {
                         AnsiConsole.Markup($"[green]=>[/] [red]Axe failed: Permission denied - [white]SKIPPING[/][/]\n");
+                        axeStatus.Status = false;
+                        continue;
+                    }
+                    else if (response.StatusCode.ToString() == "NotFound")
+                    {
+                        AnsiConsole.Markup($"[green]=>[/] [red]Axe failed: Resouce already axed - [white]SKIPPING[/][/]\n");
                         axeStatus.Status = false;
                         continue;
                     }
