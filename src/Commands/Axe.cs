@@ -2,11 +2,9 @@ using Beeching.Commands.Interfaces;
 using Beeching.Helpers;
 using Beeching.Models;
 using Newtonsoft.Json;
-using NuGet.Configuration;
 using Polly;
 using Spectre.Console;
 using System.Net.Http.Headers;
-using System.Net.Sockets;
 using System.Text;
 
 namespace Beeching.Commands
