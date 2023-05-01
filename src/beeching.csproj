@@ -15,7 +15,7 @@
     <PublishRepositoryUrl>true</PublishRepositoryUrl>
     <PackageId>beeching</PackageId>
     <PackageOutputPath>./nupkg</PackageOutputPath>
-    <Version>0.5.0</Version>
+    <Version>0.5.1</Version>
     <Authors>Ira Rainey</Authors>
     <Description>A .NET CLI tool to delete multiple Azure resources in a single sweep of the Beeching Axe.</Description>
     <PackageLicenseExpression>MIT</PackageLicenseExpression>

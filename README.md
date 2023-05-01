@@ -154,7 +154,7 @@ OPTIONS:
     -h, --help                Prints this help information
     -s, --subscription        The subscription id to use. If not specified, the active Azure CLI subscription will be used
     -n, --name                The name (or partial name) of the resources to axe. Multiple values can be specified separated by :
-    -t, --tag                 The tag key and value of the resources to axe. Must be supplied as a single string in the format key:value
+    -t, --tag                 The tag key and value of the resources to axe. Values are case sensitive and must be supplied as a single string in the format key:value
     -r, --resource-types      Restrict the types of the resources to axe. Multiple values can be specified separated by :
     -e, --exclude             The name of resources to exclude from the axe. Multiple values can be specified separated by :
     -g, --resource-groups     Axe resource groups and contents rather than individual resource types

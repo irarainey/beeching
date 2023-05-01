@@ -1,3 +1,7 @@
+## 0.5.1
+
+- Added note about case sensitivity of tag keys and values
+
 ## 0.5.0
 
 - Added functionality to determine role assignments and detect if you will be able to axe resources or remove locks
