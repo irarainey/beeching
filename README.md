@@ -8,6 +8,8 @@ Resources can be protected from the axe by specifying them in an exclusion list.
 
 The tool is written in C# and makes direct the calls to the Azure Management API. It is a .NET 6.0 / 7.0 application and can be run on Windows, Linux and Mac.
 
+![Beeching Console](https://raw.githubusercontent.com/irarainey/beeching/main/resources/images/console.png)
+
 ## Installation
 
 You can install this tool globally, using the dotnet tool command:
