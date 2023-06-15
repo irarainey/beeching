@@ -1,3 +1,7 @@
+## 0.5.2
+
+- Updated dependencies to resolve security advisory
+
 ## 0.5.1
 
 - Added note about case sensitivity of tag keys and values
