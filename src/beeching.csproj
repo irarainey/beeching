@@ -15,7 +15,7 @@
     <PublishRepositoryUrl>true</PublishRepositoryUrl>
     <PackageId>beeching</PackageId>
     <PackageOutputPath>./nupkg</PackageOutputPath>
-    <Version>0.5.1</Version>
+    <Version>0.5.2</Version>
     <Authors>Ira Rainey</Authors>
     <Description>A .NET CLI tool to delete multiple Azure resources in a single sweep of the Beeching Axe.</Description>
     <PackageLicenseExpression>MIT</PackageLicenseExpression>
@@ -53,15 +53,15 @@
   </ItemGroup>
 
   <ItemGroup>
-    <PackageReference Include="Azure.Identity" Version="1.8.2" />
+    <PackageReference Include="Azure.Identity" Version="1.9.0" />
     <PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="7.0.0" />
-    <PackageReference Include="Microsoft.Extensions.Http.Polly" Version="7.0.5" />
+    <PackageReference Include="Microsoft.Extensions.Http.Polly" Version="7.0.7" />
     <PackageReference Include="Newtonsoft.Json" Version="13.0.3" />
-    <PackageReference Include="NuGet.Protocol" Version="6.5.0" />
-    <PackageReference Include="Polly" Version="7.2.3" />
+    <PackageReference Include="NuGet.Protocol" Version="6.6.1" />
+    <PackageReference Include="Polly" Version="7.2.4" />
     <PackageReference Include="Polly.Extensions.Http" Version="3.0.0" />
-    <PackageReference Include="Spectre.Console" Version="0.46.0" />
-    <PackageReference Include="Spectre.Console.Cli" Version="0.46.0" />
+    <PackageReference Include="Spectre.Console" Version="0.47.0" />
+    <PackageReference Include="Spectre.Console.Cli" Version="0.47.0" />
   </ItemGroup>
 
 </Project>
