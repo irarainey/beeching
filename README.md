@@ -2,7 +2,7 @@
 
 ![Beeching](https://raw.githubusercontent.com/irarainey/beeching/main/resources/images/logo_small.png)
 
-Beeching is a command line tool to help you quickly and easily delete Azure resources you no longer need. Insprired by [The Beeching Axe](https://blog.nationalarchives.gov.uk/the-beeching-axe/) it allows you to cull vast numbers of resources across a subscription with a single swing of the axe. It can delete multiple resource types at the same time, based on a name, part of a name, or by tag value.
+Beeching is a command line tool to help you quickly and easily delete Azure resources you no longer need. Inspired by [The Beeching Axe](https://blog.nationalarchives.gov.uk/the-beeching-axe/) it allows you to cull vast numbers of resources across a subscription with a single swing of the axe. It can delete multiple resource types at the same time, based on a name, part of a name, or by tag value.
 
 Resources can be protected from the axe by specifying them in an exclusion list. This allows you to shield resources that you wish to keep. The list of resources can be further restricted to only cull certain types of resource by using another switch.
 
