@@ -38,19 +38,11 @@ namespace Beeching.Helpers
 
         public static bool IsUpdateAvailable(string installedVersion, string latestVersion)
         {
-            string[] parts = installedVersion.Split('.');
-            int major = int.Parse(parts[0]);
-            int minor = int.Parse(parts[1]);
-            int patch = int.Parse(parts[2]);
-            int installedVersionNumber = major * 10000 + minor * 100 + patch;
-
-            parts = latestVersion.Split('.');
-            major = int.Parse(parts[0]);
-            minor = int.Parse(parts[1]);
-            patch = int.Parse(parts[2]);
-            int latestVersionNumber = major * 10000 + minor * 100 + patch;
-
-            return latestVersionNumber > installedVersionNumber;
+            if (Version.TryParse(installedVersion, out var installed) && Version.TryParse(latestVersion, out var latest))
+            {
+                return latest > installed;
+            }
+            return false;
         }
     }
 }

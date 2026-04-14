@@ -7,6 +7,19 @@
 - Updated Azure.Identity from 1.9.0 to 1.21.0
 - Updated Spectre.Console and Spectre.Console.Cli from 0.47.0 to 0.55.0
 - Replaced dynamic role assignment deserialization with typed models
+- Fixed shared ResourceLock mutation bug when the same lock applied to multiple resources
+- Fixed duplicate resources appearing when searching by multiple name patterns
+- Fixed missing API response status checks on resource discovery calls
+- Fixed OData injection risk in tag and name filter queries
+- Fixed status code comparisons to use enum values instead of string matching
+- Fixed version comparison arithmetic that broke for minor/patch versions above 99
+- Fixed error handling in subscription ID resolution to show a clean message
+- Made CallAzCliRest private to prevent misuse
+- Replaced mutable static state in AzCliHelper with thread-safe lazy initialization
+- Moved per-request auth headers to avoid mutating shared HttpClient DefaultRequestHeaders
+- Removed dead code: unused variables, unreachable branches, and redundant null checks
+- Separated runtime state from AxeSettings into a new AxeContext model
+- Refactored Axe.cs into focused helper classes: ArmClient, ResourceDiscoveryHelper, RoleHelper, and LockHelper
 
 ## 0.5.2
 

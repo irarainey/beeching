@@ -73,11 +73,5 @@ namespace Beeching.Commands
         [Description("Do not check for update on startup")]
         [DefaultValue(false)]
         public bool IgnoreUpdate { get; set; }
-
-        public string UserId { get; set; }
-
-        public string SubscriptionRole { get; set; }
-
-        public bool IsSubscriptionRolePrivileged { get; set; }
     }
 }

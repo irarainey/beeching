@@ -2,7 +2,7 @@ using Beeching.Commands.Interfaces;
 using Beeching.Helpers;
 using Beeching.Models;
 using Spectre.Console;
-using System.Net.Http.Headers;
+using System.Net;
 using System.Text;
 using System.Text.Json;
 
@@ -10,28 +10,32 @@ namespace Beeching.Commands
 {
     internal class Axe : IAxe
     {
-        private readonly HttpClient _client;
+        private readonly ArmClient _armClient;
+        private readonly ResourceDiscoveryHelper _discovery;
+        private readonly RoleHelper _roleHelper;
+        private readonly LockHelper _lockHelper;
 
         public Axe(IHttpClientFactory httpClientFactory)
         {
-            _client = httpClientFactory.CreateClient("ArmApi");
+            _armClient = new ArmClient(httpClientFactory);
+            _discovery = new ResourceDiscoveryHelper(_armClient);
+            _roleHelper = new RoleHelper(_armClient);
+            _lockHelper = new LockHelper(_armClient);
         }
 
         public async Task<int> AxeResources(AxeSettings settings)
         {
-            // Get the access token and add it to the request header for the http client
-            _client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue(
-                "Bearer",
-                await AuthHelper.GetAccessToken(settings.Debug)
-            );
+            await _armClient.InitializeAsync(settings.Debug);
 
-            AnsiConsole.Markup($"[green]=> Determining running user details[/]\n");
+            var context = new AxeContext(settings);
 
-            (string, string) userInformation = AzCliHelper.GetSignedInUser();
-            settings.UserId = userInformation.Item1;
+            AnsiConsole.Markup("[green]=> Determining running user details[/]\n");
 
-            AnsiConsole.Markup($"[green]=> Running as user [white]{userInformation.Item2}[/] // [white]{userInformation.Item1}[/][/]\n");
-            AnsiConsole.Markup($"[green]=> Determining subscription details[/]\n");
+            (string userId, string displayName) = AzCliHelper.GetSignedInUser();
+            context.UserId = userId;
+
+            AnsiConsole.Markup($"[green]=> Running as user [white]{displayName}[/] // [white]{userId}[/][/]\n");
+            AnsiConsole.Markup("[green]=> Determining subscription details[/]\n");
 
             settings.Subscription = AzCliHelper.GetSubscriptionId(settings);
             if (settings.Subscription == Guid.Empty)
@@ -43,148 +47,167 @@ namespace Beeching.Commands
 
             AnsiConsole.Markup($"[green]=> Using subscription [white]{name}[/] // [white]{settings.Subscription}[/][/]\n");
 
-            List<EffectiveRole> subscriptionRoles = await DetermineSubscriptionRoles(settings);
+            List<EffectiveRole> subscriptionRoles = await _roleHelper.DetermineSubscriptionRoles(context);
 
             if (subscriptionRoles.Count > 0)
             {
                 string primaryRole = subscriptionRoles.OrderBy(r => r.Priority).First().Name;
-                settings.SubscriptionRole = primaryRole;
-                settings.IsSubscriptionRolePrivileged = primaryRole == "Owner" || primaryRole == "Contributor";
+                context.SubscriptionRole = primaryRole;
+                context.IsSubscriptionRolePrivileged = primaryRole is "Owner" or "Contributor";
                 AnsiConsole.Markup(
-                    $"[green]=> Role [white]{settings.SubscriptionRole}[/] assigned on subscription which will be inherited by all resources[/]\n"
+                    $"[green]=> Role [white]{context.SubscriptionRole}[/] assigned on subscription which will be inherited by all resources[/]\n"
                 );
-                if (settings.IsSubscriptionRolePrivileged == false)
+                if (!context.IsSubscriptionRolePrivileged)
                 {
                     AnsiConsole.Markup(
-                        $"[green]=> No privileged subscription role assigned so axe may fail if resource specific role not assigned[/]\n"
+                        "[green]=> No privileged subscription role assigned so axe may fail if resource specific role not assigned[/]\n"
                     );
                 }
             }
             else
             {
-                settings.SubscriptionRole = "None";
-                AnsiConsole.Markup($"[green]=> No subscription roles assigned[/]\n");
+                AnsiConsole.Markup("[green]=> No subscription roles assigned[/]\n");
             }
 
-            // Get the list of resources to axe based on the supplied options
-            List<Resource> resourcesToAxe = await GetAxeResourceList(settings);
+            List<Resource> resourcesToAxe = await _discovery.DiscoverResources(context);
 
-            // If we are in what-if mode then just output the details of the resources to axe
+            await _lockHelper.DetermineLocks(context, resourcesToAxe);
+            await _roleHelper.DetermineResourceRoles(context, resourcesToAxe);
+
             if (settings.WhatIf)
             {
-                AnsiConsole.Markup($"[cyan]=> +++ RUNNING WHAT-IF +++[/]\n");
+                AnsiConsole.Markup("[cyan]=> +++ RUNNING WHAT-IF +++[/]\n");
             }
 
             bool showedNoResources = false;
-            int unlockedAxeCount = resourcesToAxe.Where(r => r.IsLocked == false).Count();
-            if ((unlockedAxeCount == 0 && settings.Force == false) || resourcesToAxe.Count == 0)
+            int unlockedAxeCount = resourcesToAxe.Count(r => !r.IsLocked);
+            if ((unlockedAxeCount == 0 && !settings.Force) || resourcesToAxe.Count == 0)
             {
-                AnsiConsole.Markup($"[cyan]=> No resources to axe[/]\n\n");
+                AnsiConsole.Markup("[cyan]=> No resources to axe[/]\n\n");
                 showedNoResources = true;
             }
             else
             {
                 foreach (var resource in resourcesToAxe)
                 {
-                    // Determine our primary role for the resource
-                    string primaryResourceRole = string.Empty;
-                    if (resource.Roles.Any())
-                    {
-                        primaryResourceRole = resource.Roles.OrderBy(r => r.Priority).First().Name;
-                        AnsiConsole.Markup(
-                            $"[green]=> Role [white]{primaryResourceRole}[/] assigned on resource [white]{resource.OutputMessage}[/][/]\n"
-                        );
-                    }
-                    else
-                    {
-                        AnsiConsole.Markup($"[green]=> No roles assigned on resource [white]{resource.OutputMessage}[/][/]\n");
-                    }
-
-                    // Determine if we're skipping this resource because it's locked
-                    resource.Skip = resource.IsLocked == true && Axe.ShouldSkipIfLocked(settings, resource);
-
-                    string skipMessage =
-                        resource.Skip == true ? " so will not be able to remove any locks - [white]SKIPPING[/]" : string.Empty;
-                    string lockedState = resource.IsLocked == true ? "[red]LOCKED[/] " : string.Empty;
-
-                    // Are we skipping this resource because it's locked?
-                    if (resource.Skip == true)
-                    {
-                        AnsiConsole.Markup(
-                            $"[green]=> Found [red]LOCKED[/] resource [white]{resource.OutputMessage}[/] but you do not have permission to remove locks - [white]SKIPPING[/][/]\n"
-                        );
-                    }
-                    else if (resource.IsLocked == true && settings.Force == false)
-                    {
-                        resource.Skip = true;
-                        AnsiConsole.Markup(
-                            $"[green]=> Found [red]LOCKED[/] resource [white]{resource.OutputMessage}[/] which cannot be axed - [white]SKIPPING[/][/]\n"
-                        );
-                    }
-                    else
-                    {
-                        bool axeFailWarning = settings.IsSubscriptionRolePrivileged == false && resource.Roles.Any() == false;
-                        string locked = resource.IsLocked == true ? "LOCKED " : string.Empty;
-                        string group = settings.ResourceGroups == true ? " and [red]ALL[/] resources within it" : string.Empty;
-                        string axeFail = axeFailWarning == true ? " [red](may fail due to role)[/]" : string.Empty;
-                        string axeAttemptMessage = axeFailWarning == true ? "ATTEMPT TO " : string.Empty;
-                        AnsiConsole.Markup(
-                            $"[green]=> [red]WILL {axeAttemptMessage}AXE {locked}[/]resource [white]{resource.OutputMessage}[/]{group}{axeFail}[/]\n"
-                        );
-                    }
+                    DisplayResourceRoleInfo(resource);
+                    EvaluateSkipStatus(context, resource);
+                    DisplayResourceAction(context, resource);
                 }
             }
 
-            // If we're running what-if then just drop out here
             if (settings.WhatIf)
             {
-                AnsiConsole.Markup($"[cyan]=> +++ WHAT-IF COMPLETE +++[/]\n");
+                AnsiConsole.Markup("[cyan]=> +++ WHAT-IF COMPLETE +++[/]\n");
                 return 0;
             }
 
-            // If we had some resources, but now we don't because they're locked then drop out here
             if (
-                (unlockedAxeCount == 0 && settings.Force == false)
+                (unlockedAxeCount == 0 && !settings.Force)
                 || resourcesToAxe.Count == 0
-                || resourcesToAxe.Where(r => r.Skip == false).Any() == false
+                || !resourcesToAxe.Any(r => !r.Skip)
             )
             {
-                if (showedNoResources == false)
+                if (!showedNoResources)
                 {
-                    AnsiConsole.Markup($"[cyan]=> No resources to axe[/]\n\n");
+                    AnsiConsole.Markup("[cyan]=> No resources to axe[/]\n\n");
                 }
                 return 0;
             }
 
-            // If you want to skip confirmation then go ahead - make my day, punk.
-            if (settings.SkipConfirmation == false)
+            if (!ConfirmAxe(settings, resourcesToAxe))
             {
-                string title =
-                    $"\nAre you sure you want to axe these {resourcesToAxe.Where(r => r.Skip == false).Count()} resources? [red](This cannot be undone)[/]";
-                if (resourcesToAxe.Count == 1)
-                {
-                    title = "\nAre you sure you want to axe this resource? [red](This cannot be undone)[/]";
-                }
+                return 0;
+            }
+
+            return await ExecuteAxeWithRetries(context, resourcesToAxe);
+        }
+
+        private static void DisplayResourceRoleInfo(Resource resource)
+        {
+            if (resource.Roles.Any())
+            {
+                string role = resource.Roles.OrderBy(r => r.Priority).First().Name;
+                AnsiConsole.Markup(
+                    $"[green]=> Role [white]{role}[/] assigned on resource [white]{resource.OutputMessage}[/][/]\n"
+                );
+            }
+            else
+            {
+                AnsiConsole.Markup($"[green]=> No roles assigned on resource [white]{resource.OutputMessage}[/][/]\n");
+            }
+        }
+
+        private static void EvaluateSkipStatus(AxeContext context, Resource resource)
+        {
+            resource.Skip = resource.IsLocked && LockHelper.ShouldSkipIfLocked(context, resource);
+
+            if (!resource.Skip && resource.IsLocked && !context.Settings.Force)
+            {
+                resource.Skip = true;
+            }
+        }
+
+        private static void DisplayResourceAction(AxeContext context, Resource resource)
+        {
+            if (resource.Skip && resource.IsLocked && !context.Settings.Force)
+            {
+                AnsiConsole.Markup(
+                    $"[green]=> Found [red]LOCKED[/] resource [white]{resource.OutputMessage}[/] which cannot be axed - [white]SKIPPING[/][/]\n"
+                );
+            }
+            else if (resource.Skip)
+            {
+                AnsiConsole.Markup(
+                    $"[green]=> Found [red]LOCKED[/] resource [white]{resource.OutputMessage}[/] but you do not have permission to remove locks - [white]SKIPPING[/][/]\n"
+                );
+            }
+            else
+            {
+                bool axeFailWarning = !context.IsSubscriptionRolePrivileged && !resource.Roles.Any();
+                string locked = resource.IsLocked ? "LOCKED " : string.Empty;
+                string group = context.Settings.ResourceGroups ? " and [red]ALL[/] resources within it" : string.Empty;
+                string axeFail = axeFailWarning ? " [red](may fail due to role)[/]" : string.Empty;
+                string axeAttemptMessage = axeFailWarning ? "ATTEMPT TO " : string.Empty;
+                AnsiConsole.Markup(
+                    $"[green]=> [red]WILL {axeAttemptMessage}AXE {locked}[/]resource [white]{resource.OutputMessage}[/]{group}{axeFail}[/]\n"
+                );
+            }
+        }
+
+        private static bool ConfirmAxe(AxeSettings settings, List<Resource> resources)
+        {
+            if (!settings.SkipConfirmation)
+            {
+                int axeableCount = resources.Count(r => !r.Skip);
+                string title = axeableCount == 1
+                    ? "\nAre you sure you want to axe this resource? [red](This cannot be undone)[/]"
+                    : $"\nAre you sure you want to axe these {axeableCount} resources? [red](This cannot be undone)[/]";
 
                 var confirm = AnsiConsole.Prompt(new SelectionPrompt<string>().Title(title).AddChoices(new[] { "Yes", "No" }));
 
                 if (confirm == "No")
                 {
-                    AnsiConsole.Markup($"[green]=> Resource axing abandoned[/]\n\n");
-                    return 0;
+                    AnsiConsole.Markup("[green]=> Resource axing abandoned[/]\n\n");
+                    return false;
                 }
             }
             else
             {
-                AnsiConsole.Markup($"[green]=> Detected --yes. Skipping confirmation[/]\n\n");
+                AnsiConsole.Markup("[green]=> Detected --yes. Skipping confirmation[/]\n\n");
             }
+            return true;
+        }
 
+        private async Task<int> ExecuteAxeWithRetries(AxeContext context, List<Resource> resourcesToAxe)
+        {
+            var settings = context.Settings;
             int retryCount = 1;
             AxeStatus axeStatus = new();
+
             while (retryCount < (settings.MaxRetries + 1))
             {
-                // Iterate through the list of resources to axe and make the delete requests
-                axeStatus = await SwingTheAxe(settings, resourcesToAxe);
+                axeStatus = await SwingTheAxe(context, resourcesToAxe);
 
                 if (axeStatus.AxeList.Count == 0)
                 {
@@ -199,13 +222,13 @@ namespace Beeching.Commands
                 retryCount++;
             }
 
-            if (retryCount < (settings.MaxRetries + 1) && axeStatus.Status == true)
+            if (retryCount < (settings.MaxRetries + 1) && axeStatus.Status)
             {
-                AnsiConsole.Markup($"[green]=> All resources axed successfully[/]\n\n");
+                AnsiConsole.Markup("[green]=> All resources axed successfully[/]\n\n");
             }
-            else if (retryCount < (settings.MaxRetries + 1) && axeStatus.Status == false)
+            else if (retryCount < (settings.MaxRetries + 1) && !axeStatus.Status)
             {
-                AnsiConsole.Markup($"[green]=> Axe failed on some resources[/]\n\n");
+                AnsiConsole.Markup("[green]=> Axe failed on some resources[/]\n\n");
             }
             else
             {
@@ -217,637 +240,145 @@ namespace Beeching.Commands
             return 0;
         }
 
-        private async Task<AxeStatus> SwingTheAxe(AxeSettings settings, List<Resource> axeUriList)
+        private async Task<AxeStatus> SwingTheAxe(AxeContext context, List<Resource> axeList)
         {
             AxeStatus axeStatus = new();
-            foreach (var resource in axeUriList)
+            foreach (var resource in axeList)
             {
-                bool skipAxe = false;
-                if (resource.IsLocked && settings.Force)
+                if (resource.IsLocked && context.Settings.Force)
                 {
-                    foreach (var resourceLock in resource.ResourceLocks)
+                    if (!await TryRemoveLocks(context, resource))
                     {
-                        int retryCount = 1;
-                        bool lockRemoved = false;
-                        while (retryCount < (settings.MaxRetries + 1))
-                        {
-                            AnsiConsole.Markup(
-                                $"[green]=> Attempting to remove {resourceLock.Scope} lock [white]{resourceLock.Name}[/] for [white]{resource.OutputMessage}[/][/]\n"
-                            );
-                            var lockResponse = await _client.DeleteAsync(
-                                new Uri($"{resourceLock.Id}?api-version=2016-09-01", UriKind.Relative)
-                            );
-
-                            if (lockResponse.IsSuccessStatusCode == true)
-                            {
-                                lockRemoved = true;
-                                break;
-                            }
-
-                            AnsiConsole.Markup(
-                                $"[green]=>[/] [red]Failed to remove lock for {resource.OutputMessage}[/]. Pausing for {settings.RetryPause} seconds and will retry. Attempt {retryCount} of {settings.MaxRetries}[/]\n"
-                            );
-                            await Task.Delay(settings.RetryPause * 1000);
-                            retryCount++;
-                        }
-
-                        if (retryCount < (settings.MaxRetries + 1) && lockRemoved == true)
-                        {
-                            AnsiConsole.Markup($"[green]=> Lock removed successfully[/]\n");
-                        }
-                        else
-                        {
-                            AnsiConsole.Markup($"[green]=>[/] [red]Failed to remove lock for {resource.OutputMessage}[/] - SKIPPING\n");
-                            skipAxe = true;
-                            axeStatus.Status = false;
-                            break;
-                        }
+                        axeStatus.Status = false;
+                        continue;
                     }
                 }
 
-                // If we can't remove the lock then skip the axe
-                if (skipAxe == true)
-                {
-                    continue;
-                }
-
-                string group = settings.ResourceGroups == true ? " and [red]ALL[/] resources within it" : string.Empty;
-
-                // Output the details of the delete request
+                string group = context.Settings.ResourceGroups ? " and [red]ALL[/] resources within it" : string.Empty;
                 AnsiConsole.Markup($"[green]=> [red]AXING[/] [white]{resource.OutputMessage}[/]{group}[/]\n");
 
-                // Make the delete request
-                var response = await _client.DeleteAsync(new Uri($"{resource.Id}?api-version={resource.ApiVersion}", UriKind.Relative));
+                var response = await _armClient.DeleteAsync($"{resource.Id}?api-version={resource.ApiVersion}");
 
-                if (settings.Debug)
+                if (context.Settings.Debug)
                 {
-                    AnsiConsole.Markup($"[green]=> Response status code is {response.StatusCode}[/]");
-                    AnsiConsole.Markup($"[green]=> Response content: {await response.Content.ReadAsStringAsync()}[/]");
+                    AnsiConsole.Markup($"[green]=> Response status code is {response.StatusCode}[/]\n");
+                    AnsiConsole.Markup($"[green]=> Response content: {await response.Content.ReadAsStringAsync()}[/]\n");
                 }
 
                 if (!response.IsSuccessStatusCode)
                 {
-                    string responseContent = await response.Content.ReadAsStringAsync();
-                    if (responseContent.Contains("Please remove the lock and try again"))
-                    {
-                        AnsiConsole.Markup(
-                            $"[green]=>[/] [red]Axe failed because the resource is [red]LOCKED[/]. Remove the lock and try again[/]\n"
-                        );
-                        axeStatus.Status = false;
-                        continue;
-                    }
-                    else if (response.StatusCode.ToString() == "Forbidden")
-                    {
-                        AnsiConsole.Markup($"[green]=>[/] [red]Axe failed: Permission denied - [white]SKIPPING[/][/]\n");
-                        axeStatus.Status = false;
-                        continue;
-                    }
-                    else if (response.StatusCode.ToString() == "NotFound")
-                    {
-                        AnsiConsole.Markup($"[green]=>[/] [red]Axe failed: Resouce already axed - [white]SKIPPING[/][/]\n");
-                        axeStatus.Status = false;
-                        continue;
-                    }
-                    else
-                    {
-                        AnsiConsole.Markup($"[green]=>[/] [red]Axe failed: {response.StatusCode}[/]\n");
-                        axeStatus.AxeList.Add(resource);
-                        axeStatus.Status = false;
-                    }
+                    HandleDeleteFailure(response, resource, axeStatus);
                 }
                 else
                 {
-                    AnsiConsole.Markup($"[green]=> Resource axed successfully[/]\n");
-
-                    if (resource.IsLocked && settings.Force)
-                    {
-                        foreach (var resourceLock in resource.ResourceLocks)
-                        {
-                            if (
-                                (resourceLock.Scope == "resource group" && settings.ResourceGroups == false)
-                                || resourceLock.Scope == "subscription"
-                            )
-                            {
-                                AnsiConsole.Markup(
-                                    $"[green]=> Reapplying {resourceLock.Scope} lock [white]{resourceLock.Name}[/] for [white]{resource.OutputMessage}[/][/]\n"
-                                );
-
-                                var createLockResponse = await _client.PutAsync(
-                                    new Uri($"{resourceLock.Id}?api-version=2016-09-01", UriKind.Relative),
-                                    new StringContent(JsonSerializer.Serialize(resourceLock), Encoding.UTF8, "application/json")
-                                );
-
-                                if (!createLockResponse.IsSuccessStatusCode)
-                                {
-                                    AnsiConsole.Markup($"[green]=>[/] [red]Failed to reapply lock for {resource.OutputMessage}[/]\n");
-                                    skipAxe = true;
-                                }
-                            }
-                        }
-                    }
+                    AnsiConsole.Markup("[green]=> Resource axed successfully[/]\n");
+                    await ReapplyLocksIfNeeded(context, resource);
                 }
             }
 
             return axeStatus;
         }
 
-        private async Task<string?> GetLatestApiVersion(AxeSettings settings, string provider, string type)
+        private async Task<bool> TryRemoveLocks(AxeContext context, Resource resource)
         {
-            var apiVersion = await _client.GetAsync(
-                $"subscriptions/{settings.Subscription}/providers/{provider}/resourceTypes?api-version=2021-04-01"
-            );
-
-            string apiJson = await apiVersion.Content.ReadAsStringAsync();
-            List<ApiVersion> allApiVersions = new();
-
-            if (apiJson.Contains("Microsoft.Resources' does not contain sufficient information to enforce access control policy"))
+            foreach (var resourceLock in resource.ResourceLocks)
             {
-                AnsiConsole.Markup(
-                    $"[green]=>[/] [red]You do not have sufficient permissions determine latest API version. Please check your subscription permissions and try again[/]\n"
-                );
-                return null;
-            }
+                int retryCount = 1;
+                bool lockRemoved = false;
 
-            allApiVersions = JsonSerializer.Deserialize<ArmListResponse<ApiVersion>>(apiJson)!.Value;
-
-            if (allApiVersions == null)
-            {
-                return null;
-            }
-
-            ApiVersion apiTypeVersion = allApiVersions.Where(x => x.ResourceType == type).First();
-
-            return apiTypeVersion.DefaultApiVersion ?? apiTypeVersion.ApiVersions.First();
-        }
-
-        private async Task<List<Resource>> GetAxeResourceList(AxeSettings settings)
-        {
-            bool useNameFilter = !string.IsNullOrEmpty(settings.Name);
-            List<Resource> resourcesFound = new();
-
-            if (settings.ResourceGroups)
-            {
-                if (useNameFilter)
+                while (retryCount < (context.Settings.MaxRetries + 1))
                 {
-                    List<string> names = new();
+                    AnsiConsole.Markup(
+                        $"[green]=> Attempting to remove {resourceLock.Scope} lock [white]{resourceLock.Name}[/] for [white]{resource.OutputMessage}[/][/]\n"
+                    );
 
-                    if (settings.Name.Contains(':'))
-                    {
-                        names = settings.Name.Split(':').ToList();
-                    }
-                    else
-                    {
-                        names.Add(settings.Name);
-                    }
+                    var lockResponse = await _armClient.DeleteAsync($"{resourceLock.Id}?api-version=2016-09-01");
 
-                    foreach (string name in names)
+                    if (lockResponse.IsSuccessStatusCode)
                     {
-                        AnsiConsole.Markup($"[green]=> Searching for resource groups where name contains [white]{name}[/][/]\n");
-                        HttpResponseMessage response = await _client.GetAsync(
-                            $"subscriptions/{settings.Subscription}/resourcegroups?api-version=2021-04-01"
-                        );
-                        string jsonResponse = await response.Content.ReadAsStringAsync();
-                        if (jsonResponse != null)
-                        {
-                            List<Resource> resources = JsonSerializer.Deserialize<ArmListResponse<Resource>>(jsonResponse)!.Value;
-                            resourcesFound.AddRange(resources.Where(x => x.Name.Contains(name, StringComparison.OrdinalIgnoreCase)));
-                        }
+                        lockRemoved = true;
+                        break;
                     }
-                }
-                else
-                {
-                    List<string> tag = settings.Tag.Split(':').ToList();
 
                     AnsiConsole.Markup(
-                        $"[green]=> Searching for resource groups where tag [white]{tag[0]}[/] equals [white]{tag[1]}[/][/]\n"
+                        $"[green]=>[/] [red]Failed to remove lock for {resource.OutputMessage}[/]. Pausing for {context.Settings.RetryPause} seconds and will retry. Attempt {retryCount} of {context.Settings.MaxRetries}[/]\n"
                     );
-                    HttpResponseMessage response = await _client.GetAsync(
-                        $"subscriptions/{settings.Subscription}/resourcegroups?$filter=tagName eq '{tag[0]}' and tagValue eq '{tag[1]}'&api-version=2021-04-01"
-                    );
-
-                    string jsonResponse = await response.Content.ReadAsStringAsync();
-
-                    if (jsonResponse != null)
-                    {
-                        resourcesFound.AddRange(JsonSerializer.Deserialize<ArmListResponse<Resource>>(jsonResponse)!.Value);
-                    }
+                    await Task.Delay(context.Settings.RetryPause * 1000);
+                    retryCount++;
                 }
-            }
-            else
-            {
-                if (useNameFilter)
+
+                if (lockRemoved)
                 {
-                    List<string> names = new();
-
-                    if (settings.Name.Contains(':'))
-                    {
-                        names = settings.Name.Split(':').ToList();
-                    }
-                    else
-                    {
-                        names.Add(settings.Name);
-                    }
-
-                    foreach (string name in names)
-                    {
-                        AnsiConsole.Markup($"[green]=> Searching for resources where name contains [white]{name}[/][/]\n");
-                        HttpResponseMessage response = await _client.GetAsync(
-                            $"subscriptions/{settings.Subscription}/resources?$filter=substringof('{name}',name)&api-version=2021-04-01"
-                        );
-                        string jsonResponse = await response.Content.ReadAsStringAsync();
-                        if (jsonResponse != null)
-                        {
-                            List<Resource> resources = JsonSerializer.Deserialize<ArmListResponse<Resource>>(jsonResponse)!.Value;
-                            foreach (var resource in resources)
-                            {
-                                string[] sections = resource.Id.Split('/');
-                                resource.ResourceGroup = $"/subscriptions/{settings.Subscription}/resourceGroups/{sections[4]}";
-                                resourcesFound.Add(resource);
-                            }
-                        }
-                    }
+                    AnsiConsole.Markup("[green]=> Lock removed successfully[/]\n");
                 }
                 else
                 {
-                    // Split the tag into a key and value
-                    List<string> tag = settings.Tag.Split(':').ToList();
-
-                    AnsiConsole.Markup($"[green]=> Searching for resources where tag [white]{tag[0]}[/] equals [white]{tag[1]}[/][/]\n");
-                    HttpResponseMessage response = await _client.GetAsync(
-                        $"subscriptions/{settings.Subscription}/resources?$filter=tagName eq '{tag[0]}' and tagValue eq '{tag[1]}'&api-version=2021-04-01"
-                    );
-                    string jsonResponse = await response.Content.ReadAsStringAsync();
-
-                    if (jsonResponse != null)
-                    {
-                        List<Resource> resources = JsonSerializer.Deserialize<ArmListResponse<Resource>>(jsonResponse)!.Value;
-                        foreach (var resource in resources)
-                        {
-                            string[] sections = resource.Id.Split('/');
-                            resource.ResourceGroup = $"/subscriptions/{settings.Subscription}/resourceGroups/{sections[4]}";
-                            resourcesFound.Add(resource);
-                        }
-                    }
-                }
-
-                // Do we need to filter the resource types?
-                if (!string.IsNullOrEmpty(settings.ResourceTypes))
-                {
-                    List<string> allowedTypes = settings.ResourceTypes.Split(':').ToList();
-                    AnsiConsole.Markup($"[green]=> Restricting resource types to:[/]\n");
-                    foreach (string type in allowedTypes)
-                    {
-                        AnsiConsole.Markup($"\t- [white]{type}[/]\n");
-                    }
-                    resourcesFound = resourcesFound.Where(r => allowedTypes.Contains(r.Type)).ToList();
+                    AnsiConsole.Markup($"[green]=>[/] [red]Failed to remove lock for {resource.OutputMessage}[/] - SKIPPING\n");
+                    return false;
                 }
             }
 
-            // Do we need to filter exclusions?
-            if (!string.IsNullOrEmpty(settings.Exclude))
-            {
-                List<string> exclusions = settings.Exclude.Split(':').ToList();
-                List<Resource> filteredResources = resourcesFound.Where(r => !exclusions.Contains(r.Name)).ToList();
-                foreach (var resource in resourcesFound.Except(filteredResources))
-                {
-                    AnsiConsole.Markup($"[green]=> Excluding [white]{resource.Name}[/][/]\n");
-                }
-                resourcesFound = filteredResources;
-            }
-
-            // Now we have our actual list of resources to axe, let's get the latest API version for each resource type
-            foreach (var resource in resourcesFound)
-            {
-                string[] sections = resource.Id.Split('/');
-                string resourceGroup = sections[4];
-                string provider;
-                string resourceType;
-
-                if (!settings.ResourceGroups)
-                {
-                    provider = sections[6];
-                    resourceType = sections[7];
-                    resource.OutputMessage =
-                        $"[white]{resource.Type} {resource.Name}[/] [green]in resource group[/] [white]{resourceGroup}[/]";
-                }
-                else
-                {
-                    provider = "Microsoft.Resources";
-                    resourceType = "resourceGroups";
-                    resource.OutputMessage = $"[green]group[/] [white]{resource.Name}[/]";
-                }
-
-                string? apiVersion = await GetLatestApiVersion(settings, provider, resourceType);
-
-                if (apiVersion == null)
-                {
-                    AnsiConsole.Markup($"[green]=> Unable to get latest API version for {resource.OutputMessage} so will exclude[/]\n");
-                }
-
-                resource.ApiVersion = apiVersion;
-            }
-
-            // Remove any resources that we couldn't get an API version for
-            resourcesFound = resourcesFound.Except(resourcesFound.Where(r => string.IsNullOrEmpty(r.ApiVersion)).ToList()).ToList();
-
-            await DetermineLocks(settings, resourcesFound);
-
-            await DetermineRoles(settings, resourcesFound);
-
-            // Return whatever is left
-            return resourcesFound;
-        }
-
-        private async Task<List<EffectiveRole>> DetermineSubscriptionRoles(AxeSettings settings)
-        {
-            List<EffectiveRole> subscriptionRoles = new();
-            string roleId =
-                $"subscriptions/{settings.Subscription}/providers/Microsoft.Authorization/roleAssignments?$filter=principalId eq '{settings.UserId}'&api-version=2022-04-01";
-            HttpResponseMessage response = await _client.GetAsync(roleId);
-            if (response.IsSuccessStatusCode)
-            {
-                string jsonResponse = await response.Content.ReadAsStringAsync();
-                if (jsonResponse != null)
-                {
-                    List<RoleAssignment> roles = JsonSerializer.Deserialize<ArmListResponse<RoleAssignment>>(jsonResponse)!.Value;
-                    foreach (var role in roles)
-                    {
-                        RoleDefinition roleDefinition = await GetRoleDefinition(role.Properties.RoleDefinitionId);
-
-                        if (role.Properties.Scope != $"/subscriptions/{settings.Subscription}")
-                        {
-                            continue;
-                        }
-
-                        EffectiveRole effectiveRole =
-                            new()
-                            {
-                                RoleDefinitionId = roleDefinition.Name,
-                                Scope = role.Properties.Scope,
-                                ScopeType = "subscription",
-                                Name = roleDefinition.Properties.RoleName,
-                                Type = roleDefinition.Properties.Type
-                            };
-
-                        if (effectiveRole.Name == "Owner")
-                        {
-                            effectiveRole.Priority = 0;
-                        }
-                        else if (effectiveRole.Name == "Contributor")
-                        {
-                            effectiveRole.Priority = 1;
-                        }
-                        else
-                        {
-                            effectiveRole.Priority = 2;
-                        }
-
-                        bool hasFullPermission = roleDefinition.Properties.Permissions.Where(r => r.Actions.Contains("*")).Any();
-                        bool hasFullAuthPermission = roleDefinition.Properties.Permissions
-                            .Where(r => r.Actions.Contains("Microsoft.Authorization/*"))
-                            .Any();
-                        bool allAuthPermissionBlocked = roleDefinition.Properties.Permissions
-                            .Where(r => r.NotActions.Contains("Microsoft.Authorization/*"))
-                            .Any();
-                        bool deleteAuthPermissionBlocked = roleDefinition.Properties.Permissions
-                            .Where(r => r.NotActions.Contains("Microsoft.Authorization/*/Delete"))
-                            .Any();
-                        bool writeAuthPermissionBlocked = roleDefinition.Properties.Permissions
-                            .Where(r => r.NotActions.Contains("Microsoft.Authorization/*/Write"))
-                            .Any();
-
-                        if (
-                            (hasFullPermission || hasFullAuthPermission)
-                            && (!allAuthPermissionBlocked && !deleteAuthPermissionBlocked && !writeAuthPermissionBlocked)
-                        )
-                        {
-                            effectiveRole.CanManageLocks = true;
-                        }
-
-                        subscriptionRoles.Add(effectiveRole);
-                    }
-                }
-            }
-
-            return subscriptionRoles;
-        }
-
-        private async Task DetermineRoles(AxeSettings settings, List<Resource> resources)
-        {
-            AnsiConsole.Markup($"[green]=> Checking resources for role assignments[/]\n");
-
-            foreach (Resource resource in resources)
-            {
-                string roleId =
-                    $"{resource.Id}/providers/Microsoft.Authorization/roleAssignments?$filter=principalId eq '{settings.UserId}'&api-version=2022-04-01";
-                HttpResponseMessage response = await _client.GetAsync(roleId);
-                if (response.IsSuccessStatusCode)
-                {
-                    string jsonResponse = await response.Content.ReadAsStringAsync();
-                    if (jsonResponse != null)
-                    {
-                        List<RoleAssignment> roles = JsonSerializer.Deserialize<ArmListResponse<RoleAssignment>>(jsonResponse)!.Value;
-                        foreach (var role in roles)
-                        {
-                            RoleDefinition roleDefinition = await GetRoleDefinition(role.Properties.RoleDefinitionId);
-
-                            if (role.Properties.Scope == $"/subscriptions/{settings.Subscription}")
-                            {
-                                continue;
-                            }
-
-                            string[] scopeSections = role.Properties.Scope.Split('/');
-
-                            EffectiveRole effectiveRole =
-                                new()
-                                {
-                                    RoleDefinitionId = roleDefinition.Name,
-                                    Scope = role.Properties.Scope,
-                                    ScopeType = scopeSections.Length > 5 ? "resource" : "resource group",
-                                    Name = roleDefinition.Properties.RoleName,
-                                    Type = roleDefinition.Properties.Type
-                                };
-
-                            if (effectiveRole.Name == "Owner")
-                            {
-                                effectiveRole.Priority = 0;
-                            }
-                            else if (effectiveRole.Name == "Contributor")
-                            {
-                                effectiveRole.Priority = 1;
-                            }
-                            else
-                            {
-                                effectiveRole.Priority = 2;
-                            }
-
-                            bool hasFullPermission = roleDefinition.Properties.Permissions.Where(r => r.Actions.Contains("*")).Any();
-                            bool hasFullAuthPermission = roleDefinition.Properties.Permissions
-                                .Where(r => r.Actions.Contains("Microsoft.Authorization/*"))
-                                .Any();
-                            bool allAuthPermissionBlocked = roleDefinition.Properties.Permissions
-                                .Where(r => r.NotActions.Contains("Microsoft.Authorization/*"))
-                                .Any();
-                            bool deleteAuthPermissionBlocked = roleDefinition.Properties.Permissions
-                                .Where(r => r.NotActions.Contains("Microsoft.Authorization/*/Delete"))
-                                .Any();
-                            bool writeAuthPermissionBlocked = roleDefinition.Properties.Permissions
-                                .Where(r => r.NotActions.Contains("Microsoft.Authorization/*/Write"))
-                                .Any();
-
-                            if (
-                                (hasFullPermission || hasFullAuthPermission)
-                                && (!allAuthPermissionBlocked && !deleteAuthPermissionBlocked && !writeAuthPermissionBlocked)
-                            )
-                            {
-                                effectiveRole.CanManageLocks = true;
-                            }
-
-                            resource.Roles.Add(effectiveRole);
-                        }
-                    }
-                }
-            }
-        }
-
-        private async Task<RoleDefinition> GetRoleDefinition(string roleDefinitionId)
-        {
-            string[] sections = roleDefinitionId.Split('/');
-            string roleId = sections[^1];
-            string roleDefinition = $"providers/Microsoft.Authorization/roleDefinitions/{roleId}?api-version=2022-04-01";
-            HttpResponseMessage response = await _client.GetAsync(roleDefinition);
-            if (response.IsSuccessStatusCode)
-            {
-                string jsonResponse = await response.Content.ReadAsStringAsync();
-                if (jsonResponse != null)
-                {
-                    return JsonSerializer.Deserialize<RoleDefinition>(jsonResponse)!;
-                }
-            }
-            return new RoleDefinition();
-        }
-
-        private async Task DetermineLocks(AxeSettings settings, List<Resource> resources)
-        {
-            AnsiConsole.Markup($"[green]=> Checking resources for locks[/]\n");
-
-            List<ResourceLock> resourceLocks = new();
-
-            if (settings.Force == true)
-            {
-                AnsiConsole.Markup($"[green]=> Detected --force. Resource locks will be removed and reapplied where possible[/]\n");
-            }
-
-            string locks = $"/subscriptions/{settings.Subscription}/providers/Microsoft.Authorization/locks?api-version=2016-09-01";
-
-            var response = await _client.GetAsync(locks);
-            if (response.IsSuccessStatusCode)
-            {
-                string responseContent = await response.Content.ReadAsStringAsync();
-                if (responseContent != null)
-                {
-                    resourceLocks.AddRange(
-                        JsonSerializer.Deserialize<ArmListResponse<ResourceLock>>(responseContent)!.Value
-                    );
-
-                    foreach (var resource in resources)
-                    {
-                        string[] sections = resource.Id.Split('/');
-                        foreach (var resourceLock in resourceLocks)
-                        {
-                            string lockId = resourceLock.Id.ToLower();
-                            string resourceGroupId =
-                                $"/subscriptions/{settings.Subscription}/resourceGroups/{sections[4]}/providers/{resourceLock.Type}/{resourceLock.Name}".ToLower();
-                            string subscriptionId =
-                                $"/subscriptions/{settings.Subscription}/providers/{resourceLock.Type}/{resourceLock.Name}".ToLower();
-
-                            if (lockId.StartsWith(resource.Id.ToLower()))
-                            {
-                                resourceLock.Scope =
-                                    resource.Type.ToLower() == "microsoft.resources/resourcegroups" ? "resource group" : "resource";
-                                resource.ResourceLocks.Add(resourceLock);
-                                resource.IsLocked = true;
-                            }
-                            else if (lockId == resourceGroupId)
-                            {
-                                resourceLock.Scope = "resource group";
-                                resource.ResourceLocks.Add(resourceLock);
-                                resource.IsLocked = true;
-                            }
-                            else if (lockId == subscriptionId)
-                            {
-                                resourceLock.Scope = "subscription";
-                                resource.ResourceLocks.Add(resourceLock);
-                                resource.IsLocked = true;
-                            }
-                        }
-                        if (settings.Force == false && resource.IsLocked == true)
-                        {
-                            AnsiConsole.Markup(
-                                $"[green]=> Found [red]LOCKED[/] resource {resource.OutputMessage} which cannot be deleted[/] - [white]SKIPPING[/]\n"
-                            );
-                        }
-                    }
-                }
-            }
-        }
-
-        private static bool ShouldSkipIfLocked(AxeSettings settings, Resource resource)
-        {
-            // Find out what kind of powers we have
-            bool hasSubscriptionLockPowers = settings.SubscriptionRole == "Owner";
-            bool hasResourceLockPowers = resource.Roles.Where(r => r.CanManageLocks == true).Any();
-
-            // If we don't have subscription lock powers and we don't have resource lock powers then we're not good
-            if (hasSubscriptionLockPowers == false && hasResourceLockPowers == false)
-            {
-                return true;
-            }
-
-            // If we have subscription lock powers, we can remove any lock so we're good
-            if (hasSubscriptionLockPowers == true)
-            {
-                return false;
-            }
-
-            // Find out if we have subscription level locks
-            bool hasSubscriptionLocks = resource.ResourceLocks.Where(r => r.Scope == "subscription").Any();
-
-            // We don't have subscription lock powers so if the locks are at the subscription level then we're not good
-            if (hasSubscriptionLocks == true)
-            {
-                return true;
-            }
-
-            // We do have resource lock powers and we're dealing with resource groups so we're good
-            if (settings.ResourceGroups == true)
-            {
-                return false;
-            }
-
-            // Find out what kind of locks we have at the group and resource level
-            bool hasGroupLocks = resource.ResourceLocks.Where(r => r.Scope == "resource group").Any();
-            bool hasResourceLocks = resource.ResourceLocks.Where(r => r.Scope == "resource").Any();
-
-            // We have resource lock powers and the resource is locked at the resource level so we're good
-            if (hasGroupLocks == false)
-            {
-                return false;
-            }
-
-            // Find out if the role scope is for the resource group
-            bool hasOwnerOnGroup = resource.Roles.Where(r => r.ScopeType == "resource group" && r.Name == "Owner").Any();
-
-            // We have resource lock powers and the resource is locked at the group level
-            if (hasGroupLocks == true && hasOwnerOnGroup == true)
-            {
-                return false;
-            }
-
-            // Has owner on resource but lock is on group lands here so we're not good
             return true;
         }
 
+        private static void HandleDeleteFailure(HttpResponseMessage response, Resource resource, AxeStatus axeStatus)
+        {
+            string responseContent = response.Content.ReadAsStringAsync().Result;
 
+            if (responseContent.Contains("Please remove the lock and try again"))
+            {
+                AnsiConsole.Markup(
+                    "[green]=>[/] [red]Axe failed because the resource is [red]LOCKED[/]. Remove the lock and try again[/]\n"
+                );
+                axeStatus.Status = false;
+            }
+            else if (response.StatusCode == HttpStatusCode.Forbidden)
+            {
+                AnsiConsole.Markup("[green]=>[/] [red]Axe failed: Permission denied - [white]SKIPPING[/][/]\n");
+                axeStatus.Status = false;
+            }
+            else if (response.StatusCode == HttpStatusCode.NotFound)
+            {
+                AnsiConsole.Markup("[green]=>[/] [red]Axe failed: Resource already axed - [white]SKIPPING[/][/]\n");
+                axeStatus.Status = false;
+            }
+            else
+            {
+                AnsiConsole.Markup($"[green]=>[/] [red]Axe failed: {response.StatusCode}[/]\n");
+                axeStatus.AxeList.Add(resource);
+                axeStatus.Status = false;
+            }
+        }
+
+        private async Task ReapplyLocksIfNeeded(AxeContext context, Resource resource)
+        {
+            if (!resource.IsLocked || !context.Settings.Force)
+            {
+                return;
+            }
+
+            foreach (var resourceLock in resource.ResourceLocks)
+            {
+                if (
+                    (resourceLock.Scope == "resource group" && !context.Settings.ResourceGroups)
+                    || resourceLock.Scope == "subscription"
+                )
+                {
+                    AnsiConsole.Markup(
+                        $"[green]=> Reapplying {resourceLock.Scope} lock [white]{resourceLock.Name}[/] for [white]{resource.OutputMessage}[/][/]\n"
+                    );
+
+                    var createLockResponse = await _armClient.PutAsync(
+                        $"{resourceLock.Id}?api-version=2016-09-01",
+                        new StringContent(JsonSerializer.Serialize(resourceLock), Encoding.UTF8, "application/json")
+                    );
+
+                    if (!createLockResponse.IsSuccessStatusCode)
+                    {
+                        AnsiConsole.Markup($"[green]=>[/] [red]Failed to reapply lock for {resource.OutputMessage}[/]\n");
+                    }
+                }
+            }
+        }
     }
 }
