@@ -43,7 +43,7 @@ namespace Beeching.Helpers
 
         public async Task<T?> GetAsAsync<T>(string uri)
         {
-            var response = await GetAsync(uri);
+            using var response = await GetAsync(uri);
             if (!response.IsSuccessStatusCode)
             {
                 return default;
@@ -61,8 +61,8 @@ namespace Beeching.Helpers
 
         public async Task PutJsonAsync<T>(string uri, T body)
         {
-            var content = new StringContent(JsonSerializer.Serialize(body), Encoding.UTF8, "application/json");
-            await PutAsync(uri, content);
+            using var content = new StringContent(JsonSerializer.Serialize(body), Encoding.UTF8, "application/json");
+            using var response = await PutAsync(uri, content);
         }
     }
 }

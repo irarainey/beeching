@@ -178,7 +178,7 @@ namespace Beeching.Helpers
         {
             if (!_apiVersionCache.TryGetValue(provider, out var allApiVersions))
             {
-                var response = await _armClient.GetAsync(
+                using var response = await _armClient.GetAsync(
                     $"subscriptions/{context.Settings.Subscription}/providers/{provider}/resourceTypes?api-version=2021-04-01"
                 );
 

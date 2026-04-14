@@ -73,6 +73,7 @@ namespace Beeching.Helpers
             using Process process = CreateProcess(azCliExecutable, "account show");
 
             process.Start();
+            var stderrTask = process.StandardError.ReadToEndAsync();
             string processOutput = process.StandardOutput.ReadToEnd();
             process.WaitForExit();
 
@@ -91,7 +92,7 @@ namespace Beeching.Helpers
             }
             else
             {
-                string error = process.StandardError.ReadToEnd();
+                string error = stderrTask.GetAwaiter().GetResult();
                 throw new Exception($"Error executing '{azCliExecutable} account show': {error}");
             }
         }
@@ -118,11 +119,11 @@ namespace Beeching.Helpers
 
             using Process process = CreateProcess(azCliExecutable, $"rest --uri {Constants.ArmBaseUrl}{uri}");
             process.Start();
+            var stderrTask = process.StandardError.ReadToEndAsync();
             string output = process.StandardOutput.ReadToEnd();
-            string error = process.StandardError.ReadToEnd();
             process.WaitForExit();
 
-            return process.ExitCode == 0 ? output : error;
+            return process.ExitCode == 0 ? output : stderrTask.GetAwaiter().GetResult();
         }
 
         public static (string UserId, string DisplayName) GetSignedInUser()
@@ -131,6 +132,7 @@ namespace Beeching.Helpers
             using Process process = CreateProcess(azCliExecutable, "ad signed-in-user show");
 
             process.Start();
+            var stderrTask = process.StandardError.ReadToEndAsync();
             string processOutput = process.StandardOutput.ReadToEnd();
             process.WaitForExit();
 
@@ -151,7 +153,7 @@ namespace Beeching.Helpers
             }
             else
             {
-                string error = process.StandardError.ReadToEnd();
+                string error = stderrTask.GetAwaiter().GetResult();
                 throw new Exception($"Error executing '{Constants.AzCliExecutable} ad signed-in-user show': {error}");
             }
         }

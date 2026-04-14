@@ -23,11 +23,11 @@ namespace Beeching.Commands
             _lockHelper = new LockHelper(_armClient);
         }
 
-        public async Task<int> AxeResources(AxeSettings settings)
+        public async Task<int> AxeResources(AxeSettings settings, CancellationToken cancellationToken = default)
         {
             await _armClient.InitializeAsync(settings.Debug);
 
-            var context = new AxeContext(settings);
+            var context = new AxeContext(settings) { CancellationToken = cancellationToken };
 
             AnsiConsole.Markup("[green]=> Determining running user details[/]\n");
 
@@ -219,7 +219,7 @@ namespace Beeching.Commands
                 AnsiConsole.Markup(
                     $"[green]=>[/] [red]Possibly a dependency issue. Pausing for {settings.RetryPause} seconds and will retry. Attempt {retryCount} of {settings.MaxRetries}[/]\n"
                 );
-                await Task.Delay(settings.RetryPause * 1000);
+                await Task.Delay(settings.RetryPause * 1000, context.CancellationToken);
                 resourcesToAxe = axeStatus.AxeList;
                 retryCount++;
             }
@@ -260,7 +260,7 @@ namespace Beeching.Commands
                 string group = context.Settings.ResourceGroups ? " and [red]ALL[/] resources within it" : string.Empty;
                 AnsiConsole.Markup($"[green]=> [red]AXING[/] [white]{resource.OutputMessage}[/]{group}[/]\n");
 
-                var response = await _armClient.DeleteAsync($"{resource.Id}?api-version={resource.ApiVersion}");
+                using var response = await _armClient.DeleteAsync($"{resource.Id}?api-version={resource.ApiVersion}");
 
                 if (context.Settings.Debug)
                 {
@@ -284,6 +284,8 @@ namespace Beeching.Commands
 
         private async Task<bool> TryRemoveLocks(AxeContext context, Resource resource)
         {
+            bool allLocksRemoved = true;
+
             foreach (var resourceLock in resource.ResourceLocks)
             {
                 int retryCount = 1;
@@ -295,7 +297,7 @@ namespace Beeching.Commands
                         $"[green]=> Attempting to remove {resourceLock.Scope} lock [white]{resourceLock.Name}[/] for [white]{resource.OutputMessage}[/][/]\n"
                     );
 
-                    var lockResponse = await _armClient.DeleteAsync($"{resourceLock.Id}?api-version=2016-09-01");
+                    using var lockResponse = await _armClient.DeleteAsync($"{resourceLock.Id}?api-version=2016-09-01");
 
                     if (lockResponse.IsSuccessStatusCode)
                     {
@@ -306,7 +308,7 @@ namespace Beeching.Commands
                     AnsiConsole.Markup(
                         $"[green]=>[/] [red]Failed to remove lock for {resource.OutputMessage}[/]. Pausing for {context.Settings.RetryPause} seconds and will retry. Attempt {retryCount} of {context.Settings.MaxRetries}[/]\n"
                     );
-                    await Task.Delay(context.Settings.RetryPause * 1000);
+                    await Task.Delay(context.Settings.RetryPause * 1000, context.CancellationToken);
                     retryCount++;
                 }
 
@@ -316,12 +318,17 @@ namespace Beeching.Commands
                 }
                 else
                 {
-                    AnsiConsole.Markup($"[green]=>[/] [red]Failed to remove lock for {resource.OutputMessage}[/] - SKIPPING\n");
-                    return false;
+                    AnsiConsole.Markup($"[green]=>[/] [red]Failed to remove lock [white]{resourceLock.Name}[/] for {resource.OutputMessage}[/]\n");
+                    allLocksRemoved = false;
                 }
             }
 
-            return true;
+            if (!allLocksRemoved)
+            {
+                AnsiConsole.Markup($"[green]=>[/] [red]Could not remove all locks for {resource.OutputMessage}[/] - SKIPPING\n");
+            }
+
+            return allLocksRemoved;
         }
 
         private static async Task HandleDeleteFailure(HttpResponseMessage response, Resource resource, AxeStatus axeStatus)
@@ -371,7 +378,7 @@ namespace Beeching.Commands
                         $"[green]=> Reapplying {resourceLock.Scope} lock [white]{resourceLock.Name}[/] for [white]{resource.OutputMessage}[/][/]\n"
                     );
 
-                    var createLockResponse = await _armClient.PutAsync(
+                    using var createLockResponse = await _armClient.PutAsync(
                         $"{resourceLock.Id}?api-version=2016-09-01",
                         new StringContent(JsonSerializer.Serialize(resourceLock), Encoding.UTF8, "application/json")
                     );

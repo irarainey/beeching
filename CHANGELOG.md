@@ -1,5 +1,15 @@
 ## 1.0.0
 
+### Added
+
+- Resource deletion ordering: type-based priority (e.g. VMs before NICs/disks) combined with depth-first sorting to handle parent-child dependencies
+- Caching for API version lookups to avoid redundant HTTP calls per provider
+- Caching for role definition lookups to avoid re-fetching built-in roles
+- Non-zero exit code when axe fails partially or fully
+- CancellationToken support through the axe workflow so long-running batch deletes can be cancelled gracefully
+
+### Changed
+
 - Upgraded target framework from .NET 6.0 / 7.0 to .NET 10.0
 - Replaced Newtonsoft.Json with built-in System.Text.Json for all serialization
 - Replaced Polly, Polly.Extensions.Http, and Microsoft.Extensions.Http.Polly with Microsoft.Extensions.Http.Resilience
@@ -7,27 +17,28 @@
 - Updated Azure.Identity from 1.9.0 to 1.21.0
 - Updated Spectre.Console and Spectre.Console.Cli from 0.47.0 to 0.55.0
 - Replaced dynamic role assignment deserialization with typed models
-- Fixed shared ResourceLock mutation bug when the same lock applied to multiple resources
-- Fixed duplicate resources appearing when searching by multiple name patterns
-- Fixed missing API response status checks on resource discovery calls
-- Fixed OData injection risk in tag and name filter queries
-- Fixed status code comparisons to use enum values instead of string matching
-- Fixed version comparison arithmetic that broke for minor/patch versions above 99
-- Fixed error handling in subscription ID resolution to show a clean message
 - Made CallAzCliRest private to prevent misuse
 - Replaced mutable static state in AzCliHelper with thread-safe lazy initialization
 - Moved per-request auth headers to avoid mutating shared HttpClient DefaultRequestHeaders
-- Removed dead code: unused variables, unreachable branches, and redundant null checks
 - Separated runtime state from AxeSettings into a new AxeContext model
 - Refactored Axe.cs into focused helper classes: ArmClient, ResourceDiscoveryHelper, RoleHelper, and LockHelper
-- Added caching for API version lookups to avoid redundant HTTP calls per provider
-- Added caching for role definition lookups to avoid re-fetching built-in roles
+- Removed dead code: unused variables, unreachable branches, and redundant null checks
 - Removed duplicate lock skip messaging between lock detection and resource display
-- Fixed sync-over-async call in delete failure handling
-- Returns non-zero exit code when axe fails partially or fully
-- Fixed skip message ordering so locked resources show the correct reason for skipping
-- Added resource deletion ordering: type-based priority (e.g. VMs before NICs/disks) combined with depth-first sorting to handle parent-child dependencies
-- Fixed typo "Resouce" to "Resource"
+
+### Fixed
+
+- Shared ResourceLock mutation bug when the same lock applied to multiple resources
+- Duplicate resources appearing when searching by multiple name patterns
+- Missing API response status checks on resource discovery calls
+- OData injection risk in tag and name filter queries
+- Status code comparisons to use enum values instead of string matching
+- Version comparison arithmetic that broke for minor/patch versions above 99
+- Error handling in subscription ID resolution to show a clean message
+- Sync-over-async call in delete failure handling
+- Skip message ordering so locked resources show the correct reason for skipping
+- HttpResponseMessage resource leaks across all ARM API calls to prevent connection pool exhaustion
+- Potential subprocess deadlock in Azure CLI calls by reading stderr asynchronously
+- TryRemoveLocks early return that prevented attempting removal of remaining locks after a single failure
 
 ## 0.5.2
 
