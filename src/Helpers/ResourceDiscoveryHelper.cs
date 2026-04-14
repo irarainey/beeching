@@ -8,6 +8,7 @@ namespace Beeching.Helpers
     internal class ResourceDiscoveryHelper
     {
         private readonly ArmClient _armClient;
+        private readonly Dictionary<string, List<ApiVersion>> _apiVersionCache = new();
 
         public ResourceDiscoveryHelper(ArmClient armClient)
         {
@@ -175,32 +176,38 @@ namespace Beeching.Helpers
 
         private async Task<string?> GetLatestApiVersion(AxeContext context, string provider, string type)
         {
-            var response = await _armClient.GetAsync(
-                $"subscriptions/{context.Settings.Subscription}/providers/{provider}/resourceTypes?api-version=2021-04-01"
-            );
-
-            if (!response.IsSuccessStatusCode)
+            if (!_apiVersionCache.TryGetValue(provider, out var allApiVersions))
             {
-                return null;
-            }
-
-            string apiJson = await response.Content.ReadAsStringAsync();
-
-            if (apiJson.Contains("Microsoft.Resources' does not contain sufficient information to enforce access control policy"))
-            {
-                AnsiConsole.Markup(
-                    "[green]=>[/] [red]You do not have sufficient permissions determine latest API version. Please check your subscription permissions and try again[/]\n"
+                var response = await _armClient.GetAsync(
+                    $"subscriptions/{context.Settings.Subscription}/providers/{provider}/resourceTypes?api-version=2021-04-01"
                 );
-                return null;
+
+                if (!response.IsSuccessStatusCode)
+                {
+                    return null;
+                }
+
+                string apiJson = await response.Content.ReadAsStringAsync();
+
+                if (apiJson.Contains("Microsoft.Resources' does not contain sufficient information to enforce access control policy"))
+                {
+                    AnsiConsole.Markup(
+                        "[green]=>[/] [red]You do not have sufficient permissions determine latest API version. Please check your subscription permissions and try again[/]\n"
+                    );
+                    return null;
+                }
+
+                var result = JsonSerializer.Deserialize<ArmListResponse<ApiVersion>>(apiJson);
+                if (result?.Value == null || result.Value.Count == 0)
+                {
+                    return null;
+                }
+
+                allApiVersions = result.Value;
+                _apiVersionCache[provider] = allApiVersions;
             }
 
-            var result = JsonSerializer.Deserialize<ArmListResponse<ApiVersion>>(apiJson);
-            if (result?.Value == null || result.Value.Count == 0)
-            {
-                return null;
-            }
-
-            var apiTypeVersion = result.Value.FirstOrDefault(x => x.ResourceType == type);
+            var apiTypeVersion = allApiVersions.FirstOrDefault(x => x.ResourceType == type);
             if (apiTypeVersion == null)
             {
                 return null;

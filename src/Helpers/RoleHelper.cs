@@ -6,6 +6,7 @@ namespace Beeching.Helpers
     internal class RoleHelper
     {
         private readonly ArmClient _armClient;
+        private readonly Dictionary<string, RoleDefinition> _roleDefinitionCache = new();
 
         public RoleHelper(ArmClient armClient)
         {
@@ -65,10 +66,17 @@ namespace Beeching.Helpers
         {
             string[] sections = roleDefinitionId.Split('/');
             string roleId = sections[^1];
-            string roleUri = $"providers/Microsoft.Authorization/roleDefinitions/{roleId}?api-version=2022-04-01";
 
+            if (_roleDefinitionCache.TryGetValue(roleId, out var cached))
+            {
+                return cached;
+            }
+
+            string roleUri = $"providers/Microsoft.Authorization/roleDefinitions/{roleId}?api-version=2022-04-01";
             var result = await _armClient.GetAsAsync<RoleDefinition>(roleUri);
-            return result ?? new RoleDefinition();
+            var definition = result ?? new RoleDefinition();
+            _roleDefinitionCache[roleId] = definition;
+            return definition;
         }
 
         internal static EffectiveRole CreateEffectiveRole(RoleDefinition roleDefinition, string scope, string scopeType)

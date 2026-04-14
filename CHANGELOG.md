@@ -20,6 +20,13 @@
 - Removed dead code: unused variables, unreachable branches, and redundant null checks
 - Separated runtime state from AxeSettings into a new AxeContext model
 - Refactored Axe.cs into focused helper classes: ArmClient, ResourceDiscoveryHelper, RoleHelper, and LockHelper
+- Added caching for API version lookups to avoid redundant HTTP calls per provider
+- Added caching for role definition lookups to avoid re-fetching built-in roles
+- Removed duplicate lock skip messaging between lock detection and resource display
+- Fixed sync-over-async call in delete failure handling
+- Returns non-zero exit code when axe fails partially or fully
+- Fixed skip message ordering so locked resources show the correct reason for skipping
+- Fixed typo "Resouce" to "Resource"
 
 ## 0.5.2
 

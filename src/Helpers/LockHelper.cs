@@ -73,12 +73,6 @@ namespace Beeching.Helpers
                     }
                 }
 
-                if (!context.Settings.Force && resource.IsLocked)
-                {
-                    AnsiConsole.Markup(
-                        $"[green]=> Found [red]LOCKED[/] resource {resource.OutputMessage} which cannot be deleted[/] - [white]SKIPPING[/]\n"
-                    );
-                }
             }
         }
 

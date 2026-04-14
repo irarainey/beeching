@@ -150,16 +150,16 @@ namespace Beeching.Commands
 
         private static void DisplayResourceAction(AxeContext context, Resource resource)
         {
-            if (resource.Skip && resource.IsLocked && !context.Settings.Force)
+            if (resource.Skip && resource.IsLocked && context.Settings.Force)
             {
                 AnsiConsole.Markup(
-                    $"[green]=> Found [red]LOCKED[/] resource [white]{resource.OutputMessage}[/] which cannot be axed - [white]SKIPPING[/][/]\n"
+                    $"[green]=> Found [red]LOCKED[/] resource [white]{resource.OutputMessage}[/] but you do not have permission to remove locks - [white]SKIPPING[/][/]\n"
                 );
             }
             else if (resource.Skip)
             {
                 AnsiConsole.Markup(
-                    $"[green]=> Found [red]LOCKED[/] resource [white]{resource.OutputMessage}[/] but you do not have permission to remove locks - [white]SKIPPING[/][/]\n"
+                    $"[green]=> Found [red]LOCKED[/] resource [white]{resource.OutputMessage}[/] which cannot be axed - [white]SKIPPING[/][/]\n"
                 );
             }
             else
@@ -225,19 +225,20 @@ namespace Beeching.Commands
             if (retryCount < (settings.MaxRetries + 1) && axeStatus.Status)
             {
                 AnsiConsole.Markup("[green]=> All resources axed successfully[/]\n\n");
+                return 0;
             }
             else if (retryCount < (settings.MaxRetries + 1) && !axeStatus.Status)
             {
                 AnsiConsole.Markup("[green]=> Axe failed on some resources[/]\n\n");
+                return 1;
             }
             else
             {
                 AnsiConsole.Markup(
                     $"[green]=>[/] [red]Axe failed after {settings.MaxRetries} attempts. Try running the command again with --debug flag for more information[/]\n\n"
                 );
+                return 1;
             }
-
-            return 0;
         }
 
         private async Task<AxeStatus> SwingTheAxe(AxeContext context, List<Resource> axeList)
@@ -267,7 +268,7 @@ namespace Beeching.Commands
 
                 if (!response.IsSuccessStatusCode)
                 {
-                    HandleDeleteFailure(response, resource, axeStatus);
+                    await HandleDeleteFailure(response, resource, axeStatus);
                 }
                 else
                 {
@@ -321,9 +322,9 @@ namespace Beeching.Commands
             return true;
         }
 
-        private static void HandleDeleteFailure(HttpResponseMessage response, Resource resource, AxeStatus axeStatus)
+        private static async Task HandleDeleteFailure(HttpResponseMessage response, Resource resource, AxeStatus axeStatus)
         {
-            string responseContent = response.Content.ReadAsStringAsync().Result;
+            string responseContent = await response.Content.ReadAsStringAsync();
 
             if (responseContent.Contains("Please remove the lock and try again"))
             {

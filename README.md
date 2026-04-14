@@ -173,6 +173,16 @@ COMMANDS:
 
 > If the application is not working properly, you can use the `--debug` parameter to increase the logging verbosity and see more details.
 
+## Exit Codes
+
+The tool returns the following exit codes:
+
+- `0` - All resources axed successfully, or no resources to axe
+- `1` - One or more resources failed to be axed
+- `-1` - Unable to determine subscription
+
+This makes it suitable for use in CI/CD pipelines where you need to detect failures.
+
 ## Disclaimer
 
 **Warning:** This tool does not muck about. It really deletes your resources and resource groups and there is no way to recover them. Make sure you have a backup of your resources before you use this tool. No responsibility is taken for any damage caused by this tool.
