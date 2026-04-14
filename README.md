@@ -201,6 +201,15 @@ The tool returns the following exit codes:
 
 This makes it suitable for use in CI/CD pipelines where you need to detect failures.
 
+## Testing
+
+The project includes a unit test suite using xUnit. To run the tests:
+
+```bash
+cd tests/Beeching.Tests
+dotnet test
+```
+
 ## Disclaimer
 
 **Warning:** This tool does not muck about. It really deletes your resources and resource groups and there is no way to recover them. Make sure you have a backup of your resources before you use this tool. No responsibility is taken for any damage caused by this tool.

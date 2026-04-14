@@ -5,10 +5,10 @@ namespace Beeching.Helpers
 {
     internal class RoleHelper
     {
-        private readonly ArmClient _armClient;
+        private readonly IArmClient _armClient;
         private readonly Dictionary<string, RoleDefinition> _roleDefinitionCache = new();
 
-        public RoleHelper(ArmClient armClient)
+        public RoleHelper(IArmClient armClient)
         {
             _armClient = armClient;
         }

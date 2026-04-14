@@ -7,10 +7,10 @@ namespace Beeching.Helpers
 {
     internal class ResourceDiscoveryHelper
     {
-        private readonly ArmClient _armClient;
+        private readonly IArmClient _armClient;
         private readonly Dictionary<string, List<ApiVersion>> _apiVersionCache = new();
 
-        public ResourceDiscoveryHelper(ArmClient armClient)
+        public ResourceDiscoveryHelper(IArmClient armClient)
         {
             _armClient = armClient;
         }
@@ -216,7 +216,7 @@ namespace Beeching.Helpers
             return apiTypeVersion.DefaultApiVersion ?? apiTypeVersion.ApiVersions?.FirstOrDefault();
         }
 
-        private static void PopulateResourceGroup(Resource resource, Guid subscription)
+        internal static void PopulateResourceGroup(Resource resource, Guid subscription)
         {
             string[] sections = resource.Id.Split('/');
             if (sections.Length > 4)
@@ -225,7 +225,7 @@ namespace Beeching.Helpers
             }
         }
 
-        private static List<Resource> FilterByResourceTypes(List<Resource> resources, string resourceTypes)
+        internal static List<Resource> FilterByResourceTypes(List<Resource> resources, string resourceTypes)
         {
             List<string> allowedTypes = ParseDelimitedValues(resourceTypes);
             AnsiConsole.Markup("[green]=> Restricting resource types to:[/]\n");
@@ -236,7 +236,7 @@ namespace Beeching.Helpers
             return resources.Where(r => allowedTypes.Contains(r.Type)).ToList();
         }
 
-        private static List<Resource> Deduplicate(List<Resource> resources)
+        internal static List<Resource> Deduplicate(List<Resource> resources)
         {
             return resources
                 .GroupBy(r => r.Id)
@@ -244,7 +244,7 @@ namespace Beeching.Helpers
                 .ToList();
         }
 
-        private static List<Resource> ApplyExclusions(List<Resource> resources, string exclude)
+        internal static List<Resource> ApplyExclusions(List<Resource> resources, string exclude)
         {
             if (string.IsNullOrEmpty(exclude))
             {

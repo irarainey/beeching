@@ -10,7 +10,7 @@ namespace Beeching.Commands
 {
     internal class Axe : IAxe
     {
-        private readonly ArmClient _armClient;
+        private readonly IArmClient _armClient;
         private readonly ResourceDiscoveryHelper _discovery;
         private readonly RoleHelper _roleHelper;
         private readonly LockHelper _lockHelper;
@@ -18,6 +18,14 @@ namespace Beeching.Commands
         public Axe(IHttpClientFactory httpClientFactory)
         {
             _armClient = new ArmClient(httpClientFactory);
+            _discovery = new ResourceDiscoveryHelper(_armClient);
+            _roleHelper = new RoleHelper(_armClient);
+            _lockHelper = new LockHelper(_armClient);
+        }
+
+        internal Axe(IArmClient armClient)
+        {
+            _armClient = armClient;
             _discovery = new ResourceDiscoveryHelper(_armClient);
             _roleHelper = new RoleHelper(_armClient);
             _lockHelper = new LockHelper(_armClient);
@@ -140,7 +148,7 @@ namespace Beeching.Commands
             }
         }
 
-        private static void EvaluateSkipStatus(AxeContext context, Resource resource)
+        internal static void EvaluateSkipStatus(AxeContext context, Resource resource)
         {
             resource.Skip = resource.IsLocked && LockHelper.ShouldSkipIfLocked(context, resource);
 
@@ -201,7 +209,7 @@ namespace Beeching.Commands
             return true;
         }
 
-        private async Task<int> ExecuteAxeWithRetries(AxeContext context, List<Resource> resourcesToAxe)
+        internal async Task<int> ExecuteAxeWithRetries(AxeContext context, List<Resource> resourcesToAxe)
         {
             var settings = context.Settings;
             int retryCount = 1;
@@ -243,7 +251,7 @@ namespace Beeching.Commands
             }
         }
 
-        private async Task<AxeStatus> SwingTheAxe(AxeContext context, List<Resource> axeList)
+        internal async Task<AxeStatus> SwingTheAxe(AxeContext context, List<Resource> axeList)
         {
             AxeStatus axeStatus = new();
             foreach (var resource in axeList)
@@ -282,7 +290,7 @@ namespace Beeching.Commands
             return axeStatus;
         }
 
-        private async Task<bool> TryRemoveLocks(AxeContext context, Resource resource)
+        internal async Task<bool> TryRemoveLocks(AxeContext context, Resource resource)
         {
             bool allLocksRemoved = true;
 
@@ -306,7 +314,7 @@ namespace Beeching.Commands
                     }
 
                     AnsiConsole.Markup(
-                        $"[green]=>[/] [red]Failed to remove lock for {resource.OutputMessage}[/]. Pausing for {context.Settings.RetryPause} seconds and will retry. Attempt {retryCount} of {context.Settings.MaxRetries}[/]\n"
+                        $"[green]=>[/] [red]Failed to remove lock for {resource.OutputMessage}. Pausing for {context.Settings.RetryPause} seconds and will retry. Attempt {retryCount} of {context.Settings.MaxRetries}[/]\n"
                     );
                     await Task.Delay(context.Settings.RetryPause * 1000, context.CancellationToken);
                     retryCount++;
@@ -331,7 +339,7 @@ namespace Beeching.Commands
             return allLocksRemoved;
         }
 
-        private static async Task HandleDeleteFailure(HttpResponseMessage response, Resource resource, AxeStatus axeStatus)
+        internal static async Task HandleDeleteFailure(HttpResponseMessage response, Resource resource, AxeStatus axeStatus)
         {
             string responseContent = await response.Content.ReadAsStringAsync();
 

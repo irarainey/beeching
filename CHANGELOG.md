@@ -7,6 +7,7 @@
 - Caching for role definition lookups to avoid re-fetching built-in roles
 - Non-zero exit code when axe fails partially or fully
 - CancellationToken support through the axe workflow so long-running batch deletes can be cancelled gracefully
+- Unit test suite with 106 tests covering resource ordering, discovery helpers, lock logic, version comparison, command validation, role resolution, skip evaluation, and mock-based integration tests for delete workflows, lock removal, retry logic, and lock reapplication
 
 ### Changed
 
@@ -24,6 +25,7 @@
 - Refactored Axe.cs into focused helper classes: ArmClient, ResourceDiscoveryHelper, RoleHelper, and LockHelper
 - Removed dead code: unused variables, unreachable branches, and redundant null checks
 - Removed duplicate lock skip messaging between lock detection and resource display
+- Updated GitHub Actions workflow to .NET 10.0, actions v4, correct paths, and separate test step
 
 ### Fixed
 
@@ -39,6 +41,7 @@
 - HttpResponseMessage resource leaks across all ARM API calls to prevent connection pool exhaustion
 - Potential subprocess deadlock in Azure CLI calls by reading stderr asynchronously
 - TryRemoveLocks early return that prevented attempting removal of remaining locks after a single failure
+- GitHub Actions workflow path reference from `.github/build.yml` to `.github/workflows/build.yml`
 
 ## 0.5.2
 

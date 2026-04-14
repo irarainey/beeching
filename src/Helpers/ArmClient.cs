@@ -5,7 +5,7 @@ using Beeching.Models;
 
 namespace Beeching.Helpers
 {
-    internal class ArmClient
+    internal class ArmClient : IArmClient
     {
         private readonly HttpClient _client;
         private string _accessToken = string.Empty;

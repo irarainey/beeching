@@ -5,9 +5,9 @@ namespace Beeching.Helpers
 {
     internal class LockHelper
     {
-        private readonly ArmClient _armClient;
+        private readonly IArmClient _armClient;
 
-        public LockHelper(ArmClient armClient)
+        public LockHelper(IArmClient armClient)
         {
             _armClient = armClient;
         }
