@@ -6,7 +6,7 @@ Beeching is a command line tool to help you quickly and easily delete Azure reso
 
 Resources can be protected from the axe by specifying them in an exclusion list. This allows you to shield resources that you wish to keep. The list of resources can be further restricted to only cull certain types of resource by using another switch.
 
-The tool is written in C# and makes direct the calls to the Azure Management API. It is a .NET 6.0 / 7.0 application and can be run on Windows, Linux and Mac.
+The tool is written in C# and makes direct the calls to the Azure Management API. It is a .NET 10.0 application and can be run on Windows, Linux and Mac.
 
 ![Beeching Console](https://raw.githubusercontent.com/irarainey/beeching/main/resources/images/console.png)
 

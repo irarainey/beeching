@@ -1,13 +1,12 @@
 ﻿using Beeching.Commands;
-using NuGet.Common;
-using NuGet.Protocol;
-using NuGet.Protocol.Core.Types;
-using NuGet.Versioning;
+using System.Text.Json;
 
 namespace Beeching.Helpers
 {
     internal class VersionHelper
     {
+        private static readonly HttpClient _httpClient = new();
+
         public static string GetVersion()
         {
             var version = typeof(AxeCommand).Assembly.GetName().Version;
@@ -23,17 +22,18 @@ namespace Beeching.Helpers
 
         public static async Task<string?> GetLatestVersionAsync()
         {
-            SourceCacheContext cache = new();
-            SourceRepository repository = Repository.Factory.GetCoreV3(Constants.NuGetBaseUrl);
-            FindPackageByIdResource resource = await repository.GetResourceAsync<FindPackageByIdResource>();
-            IEnumerable<NuGetVersion> versions = await resource.GetAllVersionsAsync(
-                Constants.Beeching,
-                cache,
-                NullLogger.Instance,
-                CancellationToken.None
-            );
-
-            return versions.LastOrDefault()?.ToString();
+            try
+            {
+                var response = await _httpClient.GetStringAsync(Constants.NuGetPackageUrl);
+                using var json = JsonDocument.Parse(response);
+                var versions = json.RootElement.GetProperty("versions");
+                var lastVersion = versions.EnumerateArray().LastOrDefault();
+                return lastVersion.ValueKind != JsonValueKind.Undefined ? lastVersion.GetString() : null;
+            }
+            catch
+            {
+                return null;
+            }
         }
 
         public static bool IsUpdateAvailable(string installedVersion, string latestVersion)

@@ -1,11 +1,10 @@
 using Beeching.Commands.Interfaces;
 using Beeching.Helpers;
 using Beeching.Models;
-using Newtonsoft.Json;
-using Polly;
 using Spectre.Console;
 using System.Net.Http.Headers;
 using System.Text;
+using System.Text.Json;
 
 namespace Beeching.Commands
 {
@@ -335,7 +334,7 @@ namespace Beeching.Commands
 
                                 var createLockResponse = await _client.PutAsync(
                                     new Uri($"{resourceLock.Id}?api-version=2016-09-01", UriKind.Relative),
-                                    new StringContent(JsonConvert.SerializeObject(resourceLock), Encoding.UTF8, "application/json")
+                                    new StringContent(JsonSerializer.Serialize(resourceLock), Encoding.UTF8, "application/json")
                                 );
 
                                 if (!createLockResponse.IsSuccessStatusCode)
@@ -369,7 +368,7 @@ namespace Beeching.Commands
                 return null;
             }
 
-            allApiVersions = JsonConvert.DeserializeObject<Dictionary<string, List<ApiVersion>>>(apiJson)!["value"];
+            allApiVersions = JsonSerializer.Deserialize<ArmListResponse<ApiVersion>>(apiJson)!.Value;
 
             if (allApiVersions == null)
             {
@@ -410,9 +409,7 @@ namespace Beeching.Commands
                         string jsonResponse = await response.Content.ReadAsStringAsync();
                         if (jsonResponse != null)
                         {
-                            List<Resource> resources = JsonConvert.DeserializeObject<Dictionary<string, List<Resource>>>(jsonResponse)![
-                                "value"
-                            ];
+                            List<Resource> resources = JsonSerializer.Deserialize<ArmListResponse<Resource>>(jsonResponse)!.Value;
                             resourcesFound.AddRange(resources.Where(x => x.Name.Contains(name, StringComparison.OrdinalIgnoreCase)));
                         }
                     }
@@ -432,7 +429,7 @@ namespace Beeching.Commands
 
                     if (jsonResponse != null)
                     {
-                        resourcesFound.AddRange(JsonConvert.DeserializeObject<Dictionary<string, List<Resource>>>(jsonResponse)!["value"]);
+                        resourcesFound.AddRange(JsonSerializer.Deserialize<ArmListResponse<Resource>>(jsonResponse)!.Value);
                     }
                 }
             }
@@ -460,9 +457,7 @@ namespace Beeching.Commands
                         string jsonResponse = await response.Content.ReadAsStringAsync();
                         if (jsonResponse != null)
                         {
-                            List<Resource> resources = JsonConvert.DeserializeObject<Dictionary<string, List<Resource>>>(jsonResponse)![
-                                "value"
-                            ];
+                            List<Resource> resources = JsonSerializer.Deserialize<ArmListResponse<Resource>>(jsonResponse)!.Value;
                             foreach (var resource in resources)
                             {
                                 string[] sections = resource.Id.Split('/');
@@ -485,9 +480,7 @@ namespace Beeching.Commands
 
                     if (jsonResponse != null)
                     {
-                        List<Resource> resources = JsonConvert.DeserializeObject<Dictionary<string, List<Resource>>>(jsonResponse)![
-                            "value"
-                        ];
+                        List<Resource> resources = JsonSerializer.Deserialize<ArmListResponse<Resource>>(jsonResponse)!.Value;
                         foreach (var resource in resources)
                         {
                             string[] sections = resource.Id.Split('/');
@@ -576,12 +569,12 @@ namespace Beeching.Commands
                 string jsonResponse = await response.Content.ReadAsStringAsync();
                 if (jsonResponse != null)
                 {
-                    List<dynamic> roles = JsonConvert.DeserializeObject<Dictionary<string, List<dynamic>>>(jsonResponse)!["value"];
+                    List<RoleAssignment> roles = JsonSerializer.Deserialize<ArmListResponse<RoleAssignment>>(jsonResponse)!.Value;
                     foreach (var role in roles)
                     {
-                        RoleDefinition roleDefinition = await GetRoleDefinition(role.properties.roleDefinitionId.ToString());
+                        RoleDefinition roleDefinition = await GetRoleDefinition(role.Properties.RoleDefinitionId);
 
-                        if (role.properties.scope != $"/subscriptions/{settings.Subscription}")
+                        if (role.Properties.Scope != $"/subscriptions/{settings.Subscription}")
                         {
                             continue;
                         }
@@ -590,7 +583,7 @@ namespace Beeching.Commands
                             new()
                             {
                                 RoleDefinitionId = roleDefinition.Name,
-                                Scope = role.properties.scope,
+                                Scope = role.Properties.Scope,
                                 ScopeType = "subscription",
                                 Name = roleDefinition.Properties.RoleName,
                                 Type = roleDefinition.Properties.Type
@@ -653,23 +646,23 @@ namespace Beeching.Commands
                     string jsonResponse = await response.Content.ReadAsStringAsync();
                     if (jsonResponse != null)
                     {
-                        List<dynamic> roles = JsonConvert.DeserializeObject<Dictionary<string, List<dynamic>>>(jsonResponse)!["value"];
+                        List<RoleAssignment> roles = JsonSerializer.Deserialize<ArmListResponse<RoleAssignment>>(jsonResponse)!.Value;
                         foreach (var role in roles)
                         {
-                            RoleDefinition roleDefinition = await GetRoleDefinition(role.properties.roleDefinitionId.ToString());
+                            RoleDefinition roleDefinition = await GetRoleDefinition(role.Properties.RoleDefinitionId);
 
-                            if (role.properties.scope == $"/subscriptions/{settings.Subscription}")
+                            if (role.Properties.Scope == $"/subscriptions/{settings.Subscription}")
                             {
                                 continue;
                             }
 
-                            string[] scopeSections = role.properties.scope.ToString().Split('/');
+                            string[] scopeSections = role.Properties.Scope.Split('/');
 
                             EffectiveRole effectiveRole =
                                 new()
                                 {
                                     RoleDefinitionId = roleDefinition.Name,
-                                    Scope = role.properties.scope,
+                                    Scope = role.Properties.Scope,
                                     ScopeType = scopeSections.Length > 5 ? "resource" : "resource group",
                                     Name = roleDefinition.Properties.RoleName,
                                     Type = roleDefinition.Properties.Type
@@ -728,7 +721,7 @@ namespace Beeching.Commands
                 string jsonResponse = await response.Content.ReadAsStringAsync();
                 if (jsonResponse != null)
                 {
-                    return JsonConvert.DeserializeObject<RoleDefinition>(jsonResponse)!;
+                    return JsonSerializer.Deserialize<RoleDefinition>(jsonResponse)!;
                 }
             }
             return new RoleDefinition();
@@ -754,7 +747,7 @@ namespace Beeching.Commands
                 if (responseContent != null)
                 {
                     resourceLocks.AddRange(
-                        JsonConvert.DeserializeObject<Dictionary<string, List<ResourceLock>>>(responseContent)!["value"]
+                        JsonSerializer.Deserialize<ArmListResponse<ResourceLock>>(responseContent)!.Value
                     );
 
                     foreach (var resource in resources)
@@ -855,18 +848,6 @@ namespace Beeching.Commands
             return true;
         }
 
-        public static IAsyncPolicy<HttpResponseMessage> GetRetryAfterPolicy()
-        {
-            return Policy
-                .HandleResult<HttpResponseMessage>(msg => msg.Headers.TryGetValues("RetryAfter", out var _))
-                .WaitAndRetryAsync(
-                    retryCount: 3,
-                    sleepDurationProvider: (_, response, _) =>
-                        response.Result.Headers.TryGetValues("RetryAfter", out var seconds)
-                            ? TimeSpan.FromSeconds(int.Parse(seconds.First()))
-                            : TimeSpan.FromSeconds(5),
-                    onRetryAsync: (msg, time, retries, context) => Task.CompletedTask
-                );
-        }
+
     }
 }

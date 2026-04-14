@@ -1,3 +1,13 @@
+## 0.6.0
+
+- Upgraded target framework from .NET 6.0 / 7.0 to .NET 10.0
+- Replaced Newtonsoft.Json with built-in System.Text.Json for all serialization
+- Replaced Polly, Polly.Extensions.Http, and Microsoft.Extensions.Http.Polly with Microsoft.Extensions.Http.Resilience
+- Replaced NuGet.Protocol SDK with a lightweight HTTP call for version checking
+- Updated Azure.Identity from 1.9.0 to 1.21.0
+- Updated Spectre.Console and Spectre.Console.Cli from 0.47.0 to 0.55.0
+- Replaced dynamic role assignment deserialization with typed models
+
 ## 0.5.2
 
 - Updated dependencies to resolve security advisory
