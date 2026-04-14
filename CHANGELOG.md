@@ -1,4 +1,4 @@
-## 0.6.0
+## 1.0.0
 
 - Upgraded target framework from .NET 6.0 / 7.0 to .NET 10.0
 - Replaced Newtonsoft.Json with built-in System.Text.Json for all serialization
@@ -26,6 +26,7 @@
 - Fixed sync-over-async call in delete failure handling
 - Returns non-zero exit code when axe fails partially or fully
 - Fixed skip message ordering so locked resources show the correct reason for skipping
+- Added resource deletion ordering: type-based priority (e.g. VMs before NICs/disks) combined with depth-first sorting to handle parent-child dependencies
 - Fixed typo "Resouce" to "Resource"
 
 ## 0.5.2

@@ -74,6 +74,8 @@ namespace Beeching.Commands
             await _lockHelper.DetermineLocks(context, resourcesToAxe);
             await _roleHelper.DetermineResourceRoles(context, resourcesToAxe);
 
+            resourcesToAxe = ResourceOrderingHelper.OrderForDeletion(resourcesToAxe);
+
             if (settings.WhatIf)
             {
                 AnsiConsole.Markup("[cyan]=> +++ RUNNING WHAT-IF +++[/]\n");

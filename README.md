@@ -136,6 +136,24 @@ Occasionally deletion requests can fail if other dependent resources have yet to
 beeching --name my-resource --max-retry 10 --retry-pause 30
 ```
 
+## Resource Deletion Ordering
+
+When deleting multiple resources, the order of deletion matters. Azure resources often have dependencies on each other, and attempting to delete a resource that is still referenced by another will fail. For example, a virtual machine must be deleted before its network interface, which must be deleted before its network security group.
+
+Beeching automatically orders resources for deletion using two strategies:
+
+1. **Type-based priority** — Resources are grouped into priority tiers based on their type. Top-level consumers such as virtual machines and AKS clusters are deleted first, followed by their dependencies like disks and network interfaces, and finally foundational resources like virtual networks and Key Vaults. This handles common cross-provider dependency chains such as:
+
+   - VM → Disk → Disk Encryption Set → Key Vault Key
+   - Storage Account → Key Vault Key (customer-managed key)
+   - Azure Firewall → Firewall Policy → IP Group
+   - Logic App → API Connection
+   - NAT Gateway → Public IP Address
+
+2. **Depth-first sorting** — Within each priority tier, resources with deeper resource IDs (more path segments) are deleted first. This naturally handles parent-child relationships within the same provider, such as databases being deleted before their parent server.
+
+Any resources with types not explicitly mapped are assigned a default priority and will be deleted after most known types. The built-in retry mechanism acts as a safety net for any dependency chains not covered by the static ordering.
+
 ## Full List of Options
 
 You can also use the `--help` parameter to get a list of all available options.
