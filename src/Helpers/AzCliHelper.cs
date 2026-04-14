@@ -1,4 +1,4 @@
-﻿using Beeching.Commands;
+using Beeching.Commands;
 using Spectre.Console;
 using System.Diagnostics;
 using System.Text.Json;
@@ -7,31 +7,32 @@ namespace Beeching.Helpers
 {
     internal static class AzCliHelper
     {
-        private static string _azCliExecutable = Constants.AzCliExecutable;
+        private static readonly Lazy<string> _resolvedAzCliPath = new(ResolveAzCliPath);
 
-        public static string DetermineAzCliPath()
+        private static string ResolveAzCliPath()
         {
             using Process process = CreateProcess(
                 Environment.OSVersion.Platform == PlatformID.Win32NT ? "where" : "which",
-                _azCliExecutable
+                Constants.AzCliExecutable
             );
 
             process.Start();
             string processOutput = process.StandardOutput.ReadToEnd();
             process.WaitForExit();
 
-            if (process.ExitCode == 0)
-            {
-                _azCliExecutable = processOutput.Split(Environment.NewLine)[0].Trim();
-            }
+            string resolved = process.ExitCode == 0
+                ? processOutput.Split(Environment.NewLine)[0].Trim()
+                : Constants.AzCliExecutable;
 
-            return _azCliExecutable
+            return resolved
                 + (
-                    Environment.OSVersion.Platform == PlatformID.Win32NT && _azCliExecutable.EndsWith(".cmd") == false
+                    Environment.OSVersion.Platform == PlatformID.Win32NT && !resolved.EndsWith(".cmd")
                         ? ".cmd"
                         : string.Empty
                 );
         }
+
+        public static string DetermineAzCliPath() => _resolvedAzCliPath.Value;
 
         public static Guid GetSubscriptionId(AxeSettings settings)
         {
@@ -44,7 +45,7 @@ namespace Beeching.Helpers
                     if (settings.Debug)
                     {
                         AnsiConsole.Markup(
-                            "[green]=> No subscription ID specified. Trying to retrieve the default subscription ID from Azure CLI[/]"
+                            "[green]=> No subscription ID specified. Trying to retrieve the default subscription ID from Azure CLI[/]\n"
                         );
                     }
 
@@ -52,13 +53,13 @@ namespace Beeching.Helpers
 
                     if (settings.Debug)
                     {
-                        AnsiConsole.Markup($"[green]=> Default subscription ID retrieved from az cli: {subscriptionId}[/]");
+                        AnsiConsole.Markup($"[green]=> Default subscription ID retrieved from az cli: {subscriptionId}[/]\n");
                     }
                 }
-                catch (Exception ex)
+                catch
                 {
-                    AnsiConsole.WriteException(
-                        new ArgumentException("Missing subscription ID. Please specify a subscription ID or login to Azure CLI.", ex)
+                    AnsiConsole.Markup(
+                        "[red]=> Missing subscription ID. Please specify a subscription ID or login to Azure CLI.[/]\n"
                     );
                 }
             }
@@ -72,12 +73,13 @@ namespace Beeching.Helpers
             using Process process = CreateProcess(azCliExecutable, "account show");
 
             process.Start();
-            string processOuput = process.StandardOutput.ReadToEnd();
+            var stderrTask = process.StandardError.ReadToEndAsync();
+            string processOutput = process.StandardOutput.ReadToEnd();
             process.WaitForExit();
 
             if (process.ExitCode == 0)
             {
-                using var jsonOutput = JsonDocument.Parse(processOuput);
+                using var jsonOutput = JsonDocument.Parse(processOutput);
                 JsonElement root = jsonOutput.RootElement;
                 if (root.TryGetProperty("id", out JsonElement idElement))
                 {
@@ -90,7 +92,7 @@ namespace Beeching.Helpers
             }
             else
             {
-                string error = process.StandardError.ReadToEnd();
+                string error = stderrTask.GetAwaiter().GetResult();
                 throw new Exception($"Error executing '{azCliExecutable} account show': {error}");
             }
         }
@@ -111,56 +113,47 @@ namespace Beeching.Helpers
             }
         }
 
-        public static string CallAzCliRest(string uri)
+        private static string CallAzCliRest(string uri)
         {
             string azCliExecutable = DetermineAzCliPath();
 
             using Process process = CreateProcess(azCliExecutable, $"rest --uri {Constants.ArmBaseUrl}{uri}");
             process.Start();
+            var stderrTask = process.StandardError.ReadToEndAsync();
             string output = process.StandardOutput.ReadToEnd();
-            string error = process.StandardError.ReadToEnd();
             process.WaitForExit();
 
-            return process.ExitCode == 0 ? output : error;
+            return process.ExitCode == 0 ? output : stderrTask.GetAwaiter().GetResult();
         }
 
-        public static (string, string) GetSignedInUser()
+        public static (string UserId, string DisplayName) GetSignedInUser()
         {
-            (string, string) result = (string.Empty, string.Empty);
             string azCliExecutable = DetermineAzCliPath();
             using Process process = CreateProcess(azCliExecutable, "ad signed-in-user show");
 
             process.Start();
-            string processOuput = process.StandardOutput.ReadToEnd();
+            var stderrTask = process.StandardError.ReadToEndAsync();
+            string processOutput = process.StandardOutput.ReadToEnd();
             process.WaitForExit();
 
             if (process.ExitCode == 0)
             {
-                using var jsonOutput = JsonDocument.Parse(processOuput);
+                using var jsonOutput = JsonDocument.Parse(processOutput);
                 JsonElement root = jsonOutput.RootElement;
-                if (root.TryGetProperty("id", out JsonElement idElement))
-                {
-                    result.Item1 = idElement.GetString() ?? string.Empty;
-                }
-                else
-                {
-                    result.Item1 = string.Empty;
-                }
 
-                if (root.TryGetProperty("displayName", out JsonElement displayNameElement))
-                {
-                    result.Item2 = displayNameElement.GetString() ?? string.Empty;
-                }
-                else
-                {
-                    result.Item2 = string.Empty;
-                }
+                string userId = root.TryGetProperty("id", out JsonElement idElement)
+                    ? idElement.GetString() ?? string.Empty
+                    : string.Empty;
 
-                return result;
+                string displayName = root.TryGetProperty("displayName", out JsonElement displayNameElement)
+                    ? displayNameElement.GetString() ?? string.Empty
+                    : string.Empty;
+
+                return (userId, displayName);
             }
             else
             {
-                string error = process.StandardError.ReadToEnd();
+                string error = stderrTask.GetAwaiter().GetResult();
                 throw new Exception($"Error executing '{Constants.AzCliExecutable} ad signed-in-user show': {error}");
             }
         }

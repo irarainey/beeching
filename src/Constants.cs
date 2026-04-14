@@ -4,7 +4,7 @@
     {
         public const string ArmBaseUrl = "https://management.azure.com/";
 
-        public const string NuGetBaseUrl = "https://api.nuget.org/v3/index.json";
+        public const string NuGetPackageUrl = "https://api.nuget.org/v3-flatcontainer/beeching/index.json";
 
         public const string AzCliExecutable = "az";
 

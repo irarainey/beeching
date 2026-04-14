@@ -13,7 +13,7 @@ namespace Beeching.Commands
             _axe = axe;
         }
 
-        public override ValidationResult Validate(CommandContext context, AxeSettings settings)
+        protected override ValidationResult Validate(CommandContext context, AxeSettings settings)
         {
             if (!string.IsNullOrEmpty(settings.Name) && !string.IsNullOrEmpty(settings.Tag))
             {
@@ -63,9 +63,9 @@ namespace Beeching.Commands
             return ValidationResult.Success();
         }
 
-        public override async Task<int> ExecuteAsync(CommandContext context, AxeSettings settings)
+        protected override async Task<int> ExecuteAsync(CommandContext context, AxeSettings settings, CancellationToken cancellation)
         {
-            return await _axe.AxeResources(settings);
+            return await _axe.AxeResources(settings, cancellation);
         }
     }
 }

@@ -6,7 +6,7 @@ Beeching is a command line tool to help you quickly and easily delete Azure reso
 
 Resources can be protected from the axe by specifying them in an exclusion list. This allows you to shield resources that you wish to keep. The list of resources can be further restricted to only cull certain types of resource by using another switch.
 
-The tool is written in C# and makes direct the calls to the Azure Management API. It is a .NET 6.0 / 7.0 application and can be run on Windows, Linux and Mac.
+The tool is written in C# and makes direct the calls to the Azure Management API. It is a .NET 10.0 application and can be run on Windows, Linux and Mac.
 
 ![Beeching Console](https://raw.githubusercontent.com/irarainey/beeching/main/resources/images/console.png)
 
@@ -136,6 +136,24 @@ Occasionally deletion requests can fail if other dependent resources have yet to
 beeching --name my-resource --max-retry 10 --retry-pause 30
 ```
 
+## Resource Deletion Ordering
+
+When deleting multiple resources, the order of deletion matters. Azure resources often have dependencies on each other, and attempting to delete a resource that is still referenced by another will fail. For example, a virtual machine must be deleted before its network interface, which must be deleted before its network security group.
+
+Beeching automatically orders resources for deletion using two strategies:
+
+1. **Type-based priority** — Resources are grouped into priority tiers based on their type. Top-level consumers such as virtual machines and AKS clusters are deleted first, followed by their dependencies like disks and network interfaces, and finally foundational resources like virtual networks and Key Vaults. This handles common cross-provider dependency chains such as:
+
+   - VM → Disk → Disk Encryption Set → Key Vault Key
+   - Storage Account → Key Vault Key (customer-managed key)
+   - Azure Firewall → Firewall Policy → IP Group
+   - Logic App → API Connection
+   - NAT Gateway → Public IP Address
+
+2. **Depth-first sorting** — Within each priority tier, resources with deeper resource IDs (more path segments) are deleted first. This naturally handles parent-child relationships within the same provider, such as databases being deleted before their parent server.
+
+Any resources with types not explicitly mapped are assigned a default priority and will be deleted after most known types. The built-in retry mechanism acts as a safety net for any dependency chains not covered by the static ordering.
+
 ## Full List of Options
 
 You can also use the `--help` parameter to get a list of all available options.
@@ -172,6 +190,25 @@ COMMANDS:
 ```
 
 > If the application is not working properly, you can use the `--debug` parameter to increase the logging verbosity and see more details.
+
+## Exit Codes
+
+The tool returns the following exit codes:
+
+- `0` - All resources axed successfully, or no resources to axe
+- `1` - One or more resources failed to be axed
+- `-1` - Unable to determine subscription
+
+This makes it suitable for use in CI/CD pipelines where you need to detect failures.
+
+## Testing
+
+The project includes a unit test suite using xUnit. To run the tests:
+
+```bash
+cd tests/Beeching.Tests
+dotnet test
+```
 
 ## Disclaimer
 

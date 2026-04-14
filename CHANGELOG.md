@@ -1,3 +1,48 @@
+## 1.0.0
+
+### Added
+
+- Resource deletion ordering: type-based priority (e.g. VMs before NICs/disks) combined with depth-first sorting to handle parent-child dependencies
+- Caching for API version lookups to avoid redundant HTTP calls per provider
+- Caching for role definition lookups to avoid re-fetching built-in roles
+- Non-zero exit code when axe fails partially or fully
+- CancellationToken support through the axe workflow so long-running batch deletes can be cancelled gracefully
+- Unit test suite with 106 tests covering resource ordering, discovery helpers, lock logic, version comparison, command validation, role resolution, skip evaluation, and mock-based integration tests for delete workflows, lock removal, retry logic, and lock reapplication
+
+### Changed
+
+- Upgraded target framework from .NET 6.0 / 7.0 to .NET 10.0
+- Replaced Newtonsoft.Json with built-in System.Text.Json for all serialization
+- Replaced Polly, Polly.Extensions.Http, and Microsoft.Extensions.Http.Polly with Microsoft.Extensions.Http.Resilience
+- Replaced NuGet.Protocol SDK with a lightweight HTTP call for version checking
+- Updated Azure.Identity from 1.9.0 to 1.21.0
+- Updated Spectre.Console and Spectre.Console.Cli from 0.47.0 to 0.55.0
+- Replaced dynamic role assignment deserialization with typed models
+- Made CallAzCliRest private to prevent misuse
+- Replaced mutable static state in AzCliHelper with thread-safe lazy initialization
+- Moved per-request auth headers to avoid mutating shared HttpClient DefaultRequestHeaders
+- Separated runtime state from AxeSettings into a new AxeContext model
+- Refactored Axe.cs into focused helper classes: ArmClient, ResourceDiscoveryHelper, RoleHelper, and LockHelper
+- Removed dead code: unused variables, unreachable branches, and redundant null checks
+- Removed duplicate lock skip messaging between lock detection and resource display
+- Updated GitHub Actions workflow to .NET 10.0, actions v4, correct paths, and separate test step
+
+### Fixed
+
+- Shared ResourceLock mutation bug when the same lock applied to multiple resources
+- Duplicate resources appearing when searching by multiple name patterns
+- Missing API response status checks on resource discovery calls
+- OData injection risk in tag and name filter queries
+- Status code comparisons to use enum values instead of string matching
+- Version comparison arithmetic that broke for minor/patch versions above 99
+- Error handling in subscription ID resolution to show a clean message
+- Sync-over-async call in delete failure handling
+- Skip message ordering so locked resources show the correct reason for skipping
+- HttpResponseMessage resource leaks across all ARM API calls to prevent connection pool exhaustion
+- Potential subprocess deadlock in Azure CLI calls by reading stderr asynchronously
+- TryRemoveLocks early return that prevented attempting removal of remaining locks after a single failure
+- GitHub Actions workflow path reference from `.github/build.yml` to `.github/workflows/build.yml`
+
 ## 0.5.2
 
 - Updated dependencies to resolve security advisory
